@@ -27,15 +27,26 @@
 4. **认证模块**
    - JWT + HttpOnly Cookie 认证
    - 登录接口 `POST /api/v1/auth/sessions`
-   - 退出接口 `DELETE /api/v1/auth/session`
+   - 退出接口 `DELETE /api/v1/auth/session`（不需要认证，始终清除 Cookie）
    - 当前用户接口 `GET /api/v1/me`
    - 修改密码接口 `PATCH /api/v1/me/password`
-   - 强制改密中间件（mustChangePassword=true 时只允许特定接口）
+   - 强制改密中间件（mustChangePassword=true 时只允许 GET /me、PATCH /me/password、DELETE /auth/session）
 
-5. **测试**
+5. **测试**（自包含，不依赖外部服务器）
    - Vitest + Supertest 集成测试
-   - 11 项测试全部通过
-   - 覆盖场景：健康检查、未认证访问、正确/错误密码登录、当前用户、强制改密、密码修改、JWT 失效、停用账号、退出
+   - 12 项测试全部通过
+   - 覆盖场景：
+     - 健康检查
+     - 未认证访问
+     - 正确/错误密码登录
+     - 非存在用户登录
+     - 停用账号登录
+     - 当前用户查询
+     - 退出 + Cookie 清除
+     - 强制改密：GET /me 允许
+     - 强制改密：PATCH /me/password 允许
+     - 强制改密：非白名单接口返回 403 PASSWORD_CHANGE_REQUIRED
+     - 修改密码 + 旧 JWT 失效 + 新密码登录 + 旧密码拒绝
 
 6. **Build 验证**
    - 后端 TypeScript build 通过
@@ -68,6 +79,11 @@
    - 退出接口不需要认证中间件
    - 原因：即使 JWT 已失效，用户也应该能清除浏览器 Cookie
 
+4. **测试架构**
+   - app.ts 只导出 createApp() 函数，不调用 listen
+   - index.ts 负责调用 listen
+   - 测试使用 supertest(app) 直接测试，不依赖外部服务器
+
 ## 今日问题
 
 1. **npm 缓存损坏**
@@ -86,47 +102,38 @@
    - 现象：使用 `req.path` 匹配失败（路径是相对路由的）
    - 解决：改用 `req.originalUrl` 匹配完整路径
 
+5. **Review 发现的问题**
+   - 测试名称 "should reject access to /me" 与实际断言（200）不匹配
+   - /me 路由上存在重复的 authenticationMiddleware
+   - 测试依赖外部服务器运行
+   - 以上问题已在 Review 后修复
+
 ## AI 完成的工作
 
 1. 创建后端项目结构和配置文件
 2. 编写 Prisma Schema（基于数据库设计文档）
 3. 实现认证模块（登录、退出、当前用户、改密）
 4. 实现强制改密中间件
-5. 编写 Vitest 集成测试
+5. 编写 Vitest 集成测试（12项）
 6. 修复 Prisma Schema 关系歧义
 7. 修复 JWT 签名类型错误
 8. 修复强制改密中间件路径匹配问题
-
-## 认证 Review 发现的问题
-
-1. **退出接口认证问题**
-   - 原实现：退出接口需要认证中间件
-   - 问题：JWT 失效后无法退出（无法清除 Cookie）
-   - 修复：移除退出接口的认证要求，始终清除 Cookie
-
-2. **强制改密路径匹配**
-   - 原实现：使用 `req.path` 匹配
-   - 问题：路径是相对路由的，不是完整路径
-   - 修复：改用 `req.originalUrl` 匹配完整路径
+9. 重构测试为自包含架构（supertest(app)）
 
 ## 实际测试结果
 
 ```
-✓ health check should return 200
-✓ should reject unauthenticated access to protected endpoint
-✓ should login with correct credentials
-✓ should reject wrong password
-✓ should reject non-existent user
-✓ should get current user with valid cookie
-✓ should reject access to /me when mustChangePassword is true
-✓ should allow password change when mustChangePassword is true
-✓ should logout and clear cookie
-✓ should reject disabled account login
-✓ should invalidate JWT after password change
+✓ tests/auth.test.ts  (12 tests) 1274ms
 
-Test Files  1 passed (1)
-     Tests  11 passed (11)
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
 ```
+
+测试详情：
+- Health Check (1 test): GET /api/v1/health
+- Authentication (7 tests): 未认证、正确登录、错误密码、不存在用户、停用账号、当前用户、退出
+- Force Password Change (3 tests): GET /me 允许、PATCH /me/password 允许、非白名单拦截
+- Password Change & JWT Invalidation (1 test): 改密 + 旧JWT失效 + 新旧密码验证
 
 ## 尚未验证
 

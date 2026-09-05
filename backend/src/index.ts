@@ -1,14 +1,12 @@
-import app from './app';
+import { createApp } from './app';
+import { config } from './infrastructure/config';
+import { logger } from './common/logger';
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-  process.exit(1);
-});
+const app = createApp();
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+const PORT = config.PORT;
+app.listen(PORT, () => {
+  logger.info(`Server running on port ${PORT}`);
 });
 
 export default app;
