@@ -12,7 +12,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as any)?.from?.pathname || '/app/admin/departments';
+  const from = (location.state as any)?.from?.pathname;
 
   const onFinish = async (values: { username: string; password: string }) => {
     setLoading(true);
@@ -20,8 +20,17 @@ export default function LoginPage() {
       const result = await login(values.username, values.password);
       if (result.mustChangePassword) {
         navigate('/change-password', { replace: true });
-      } else {
+      } else if (from && from !== '/login' && from !== '/change-password') {
+        // Redirect back to where the user came from
         navigate(from, { replace: true });
+      } else {
+        // Default redirect based on role
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser?.role === 'ADMIN') {
+          navigate('/app/admin/departments', { replace: true });
+        } else {
+          navigate('/app/dashboard', { replace: true });
+        }
       }
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || '登录失败';

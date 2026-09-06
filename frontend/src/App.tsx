@@ -8,6 +8,7 @@ import PasswordChangeGuard from '@/components/guards/PasswordChangeGuard';
 import AdminLayout from '@/layouts/AdminLayout';
 import LoginPage from '@/pages/LoginPage';
 import PasswordChangePage from '@/pages/PasswordChangePage';
+import EmployeeDashboardPage from '@/pages/EmployeeDashboardPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 import NoPermissionPage from '@/pages/NoPermissionPage';
 import DepartmentPage from '@/pages/admin/DepartmentPage';
@@ -30,6 +31,18 @@ export default function App() {
         <Route path="/change-password" element={<AuthGuard><PasswordChangePage /></AuthGuard>} />
         <Route path="/no-permission" element={<NoPermissionPage />} />
 
+        {/* Employee dashboard (accessible by all authenticated users) */}
+        <Route
+          path="/app/dashboard"
+          element={
+            <AuthGuard>
+              <PasswordChangeGuard>
+                <EmployeeDashboardPage />
+              </PasswordChangeGuard>
+            </AuthGuard>
+          }
+        />
+
         {/* Admin routes */}
         <Route
           path="/app/admin"
@@ -48,9 +61,9 @@ export default function App() {
           <Route path="employees" element={<EmployeePage />} />
         </Route>
 
-        {/* Default redirects */}
-        <Route path="/" element={<Navigate to="/app/admin/departments" replace />} />
-        <Route path="/app" element={<Navigate to="/app/admin/departments" replace />} />
+        {/* Default: redirect to login — GuestGuard handles authenticated redirects */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/app" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>

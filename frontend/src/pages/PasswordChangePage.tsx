@@ -8,7 +8,7 @@ const { Title, Text } = Typography;
 
 export default function PasswordChangePage() {
   const [loading, setLoading] = useState(false);
-  const { user, changePassword, logout } = useAuthStore();
+  const { user, changePassword } = useAuthStore();
   const navigate = useNavigate();
 
   const onFinish = async (values: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
@@ -19,8 +19,8 @@ export default function PasswordChangePage() {
     setLoading(true);
     try {
       await changePassword(values.currentPassword, values.newPassword);
+      // changePassword already clears local user state (backend cleared the cookie)
       message.success('密码修改成功，请重新登录');
-      await logout();
       navigate('/login', { replace: true });
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || '密码修改失败';
