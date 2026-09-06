@@ -6,7 +6,9 @@ import { config } from './infrastructure/config';
 import { globalExceptionHandler } from './common/exception/global-exception-handler';
 import { authRouter } from './modules/auth/auth.controller';
 import { meRouter } from './modules/me/me.controller';
-import { authenticationMiddleware, forcePasswordChangeMiddleware } from './common/auth/authentication';
+import { departmentRouter } from './modules/department/department.controller';
+import { userRouter } from './modules/user/user.controller';
+import { authenticationMiddleware, forcePasswordChangeMiddleware, requireRole } from './common/auth/authentication';
 
 export function createApp() {
   const app = express();
@@ -25,6 +27,23 @@ export function createApp() {
 
   // Protected routes - require authentication + force password change check
   app.use('/api/v1/me', authenticationMiddleware, forcePasswordChangeMiddleware, meRouter);
+
+  // Admin-only routes
+  app.use(
+    '/api/v1/departments',
+    authenticationMiddleware,
+    forcePasswordChangeMiddleware,
+    requireRole('ADMIN'),
+    departmentRouter
+  );
+
+  app.use(
+    '/api/v1/users',
+    authenticationMiddleware,
+    forcePasswordChangeMiddleware,
+    requireRole('ADMIN'),
+    userRouter
+  );
 
   // Health check
   app.get('/api/v1/health', (_req, res) => {
