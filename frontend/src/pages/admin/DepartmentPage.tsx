@@ -92,15 +92,24 @@ export default function DepartmentPage() {
   // ============================================================
   const openCreateModal = () => {
     setEditingDept(null);
-    nameForm.resetFields();
     setNameModalOpen(true);
   };
 
   const openEditModal = (dept: Department) => {
     setEditingDept(dept);
-    nameForm.setFieldsValue({ name: dept.name });
     setNameModalOpen(true);
   };
+
+  // Set form values after modal opens (form is now mounted)
+  useEffect(() => {
+    if (nameModalOpen) {
+      if (editingDept) {
+        nameForm.setFieldsValue({ name: editingDept.name });
+      } else {
+        nameForm.resetFields();
+      }
+    }
+  }, [nameModalOpen, editingDept, nameForm]);
 
   const handleNameSubmit = async () => {
     try {
@@ -143,9 +152,9 @@ export default function DepartmentPage() {
   // ============================================================
   const openManagerModal = async (dept: Department) => {
     setManagerDept(dept);
-    setManagerModalOpen(true);
     setSelectedCandidate(null);
     setCandidateKeyword('');
+    setManagerModalOpen(true);
     await fetchCandidates(dept.id, '');
   };
 
@@ -154,8 +163,9 @@ export default function DepartmentPage() {
     try {
       const res = await getManagerCandidates(deptId, { keyword, pageSize: 100 });
       setCandidates(res.items);
-    } catch {
-      // silent
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || '加载候选人失败';
+      message.error(msg);
     } finally {
       setCandidatesLoading(false);
     }
@@ -313,7 +323,7 @@ export default function DepartmentPage() {
         onOk={handleNameSubmit}
         onCancel={() => setNameModalOpen(false)}
         confirmLoading={nameSaving}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={nameForm} layout="vertical" preserve={false}>
           <Form.Item
@@ -332,7 +342,7 @@ export default function DepartmentPage() {
         open={managerModalOpen}
         onCancel={() => setManagerModalOpen(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         width={560}
       >
         {managerDept && (

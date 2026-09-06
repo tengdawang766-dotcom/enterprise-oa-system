@@ -26,6 +26,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type { User, Department } from '@/types';
 import { getUsers, createUser, updateUser, transferDepartment, resetPassword, disableUser } from '@/api/users';
 import { getDepartments } from '@/api/departments';
+import { PASSWORD_RULES } from '@/utils/password-rules';
 
 // helper: role label
 const roleLabel: Record<string, string> = { ADMIN: '管理员', EMPLOYEE: '员工' };
@@ -54,6 +55,7 @@ export default function EmployeePage() {
 
   // ---- department options (for filter & form) ----
   const [deptOptions, setDeptOptions] = useState<Department[]>([]);
+  const [deptError, setDeptError] = useState<string | null>(null);
 
   // ---- create modal ----
   const [createOpen, setCreateOpen] = useState(false);
@@ -83,10 +85,14 @@ export default function EmployeePage() {
   // ============================================================
   const fetchAllDepartments = useCallback(async () => {
     try {
-      const res = await getDepartments({ pageSize: 1000 });
+      // Backend max pageSize is 100
+      const res = await getDepartments({ pageSize: 100 });
       setDeptOptions(res.items);
-    } catch {
-      // silent
+      setDeptError(null);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || '加载部门列表失败';
+      setDeptError(msg);
+      message.error(msg);
     }
   }, []);
 
@@ -135,11 +141,22 @@ export default function EmployeePage() {
   // create employee
   // ============================================================
   const openCreateModal = () => {
-    createForm.resetFields();
+    // Open first — with destroyOnHidden the form mounts fresh
     setCreateOpen(true);
   };
 
+  // Reset form after modal opens (form is now mounted)
+  useEffect(() => {
+    if (createOpen) {
+      createForm.resetFields();
+    }
+  }, [createOpen, createForm]);
+
   const handleCreate = async () => {
+    if (deptOptions.length === 0) {
+      message.warning(deptError || '部门列表加载失败，无法创建员工');
+      return;
+    }
     try {
       const values = await createForm.validateFields();
       setCreateSaving(true);
@@ -170,14 +187,21 @@ export default function EmployeePage() {
   // ============================================================
   const openEditModal = (user: User) => {
     setEditUser(user);
-    editForm.setFieldsValue({
-      name: user.name,
-      jobTitle: user.jobTitle ?? '',
-      workEmail: user.workEmail ?? '',
-      phone: user.phone ?? '',
-    });
+    // Open first — form mounts with initialValues
     setEditOpen(true);
   };
+
+  // Set form values after modal opens (form is now mounted)
+  useEffect(() => {
+    if (editOpen && editUser) {
+      editForm.setFieldsValue({
+        name: editUser.name,
+        jobTitle: editUser.jobTitle ?? '',
+        workEmail: editUser.workEmail ?? '',
+        phone: editUser.phone ?? '',
+      });
+    }
+  }, [editOpen, editUser, editForm]);
 
   const handleEdit = async () => {
     if (!editUser) return;
@@ -207,12 +231,23 @@ export default function EmployeePage() {
   // ============================================================
   const openTransferModal = (user: User) => {
     setTransferUser(user);
-    transferForm.resetFields();
+    // Open first — form mounts fresh
     setTransferOpen(true);
   };
 
+  // Reset form after modal opens
+  useEffect(() => {
+    if (transferOpen) {
+      transferForm.resetFields();
+    }
+  }, [transferOpen, transferForm]);
+
   const handleTransfer = async () => {
     if (!transferUser) return;
+    if (deptOptions.length === 0) {
+      message.warning(deptError || '部门列表加载失败，无法调部门');
+      return;
+    }
     try {
       const values = await transferForm.validateFields();
       setTransferSaving(true);
@@ -234,9 +269,16 @@ export default function EmployeePage() {
   // ============================================================
   const openResetModal = (user: User) => {
     setResetUser(user);
-    resetForm.resetFields();
+    // Open first — form mounts fresh
     setResetOpen(true);
   };
+
+  // Reset form after modal opens
+  useEffect(() => {
+    if (resetOpen) {
+      resetForm.resetFields();
+    }
+  }, [resetOpen, resetForm]);
 
   const handleResetPassword = async () => {
     if (!resetUser) return;
@@ -434,6 +476,7 @@ export default function EmployeePage() {
           onChange={(val) => setFilterDept(val)}
           style={{ width: 160 }}
           options={deptOptions.map((d) => ({ label: d.name, value: d.id }))}
+          notFoundContent={deptError ? '加载失败' : '暂无部门'}
         />
       </Space>
 
@@ -455,7 +498,7 @@ export default function EmployeePage() {
         onOk={handleCreate}
         onCancel={() => setCreateOpen(false)}
         confirmLoading={createSaving}
-        destroyOnClose
+        destroyOnHidden
         width={560}
       >
         <Form form={createForm} layout="vertical" preserve={false}>
@@ -469,9 +512,9 @@ export default function EmployeePage() {
           <Form.Item
             name="initialPassword"
             label="初始密码"
-            rules={[{ required: true, message: '请输入初始密码' }, { min: 6, message: '密码至少 6 位' }]}
+            rules={PASSWORD_RULES}
           >
-            <Input.Password placeholder="请输入初始密码（至少 6 位）" />
+            <Input.Password placeholder="请输入初始密码（至少8位，包含字母和数字）" />
           </Form.Item>
           <Form.Item
             name="name"
@@ -495,11 +538,13 @@ export default function EmployeePage() {
           </Form.Item>
           <Form.Item name="departmentId" label="部门">
             <Select
-              placeholder="请选择部门（可留空）"
+              placeholder={deptError ? `部门加载失败: ${deptError}` : '请选择部门（可留空）'}
               allowClear
               showSearch
               optionFilterProp="label"
               options={deptOptions.map((d) => ({ label: d.name, value: d.id }))}
+              disabled={deptOptions.length === 0 && !!deptError}
+              notFoundContent={deptError ? '加载失败' : '暂无部门'}
             />
           </Form.Item>
           <Form.Item name="jobTitle" label="职务">
@@ -525,7 +570,7 @@ export default function EmployeePage() {
         onOk={handleEdit}
         onCancel={() => setEditOpen(false)}
         confirmLoading={editSaving}
-        destroyOnClose
+        destroyOnHidden
       >
         {editUser && (
           <div style={{ marginBottom: 16 }}>
@@ -565,7 +610,7 @@ export default function EmployeePage() {
         onOk={handleTransfer}
         onCancel={() => setTransferOpen(false)}
         confirmLoading={transferSaving}
-        destroyOnClose
+        destroyOnHidden
       >
         {transferUser && (
           <div style={{ marginBottom: 16 }}>
@@ -581,10 +626,12 @@ export default function EmployeePage() {
             rules={[{ required: true, message: '请选择目标部门' }]}
           >
             <Select
-              placeholder="请选择目标部门"
+              placeholder={deptError ? `部门加载失败: ${deptError}` : '请选择目标部门'}
               showSearch
               optionFilterProp="label"
               options={deptOptions.map((d) => ({ label: d.name, value: d.id }))}
+              disabled={deptOptions.length === 0 && !!deptError}
+              notFoundContent={deptError ? '加载失败' : '暂无部门'}
             />
           </Form.Item>
         </Form>
@@ -597,15 +644,15 @@ export default function EmployeePage() {
         onOk={handleResetPassword}
         onCancel={() => setResetOpen(false)}
         confirmLoading={resetSaving}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={resetForm} layout="vertical" preserve={false}>
           <Form.Item
             name="newPassword"
             label="新密码"
-            rules={[{ required: true, message: '请输入新密码' }, { min: 6, message: '密码至少 6 位' }]}
+            rules={PASSWORD_RULES}
           >
-            <Input.Password placeholder="请输入新密码（至少 6 位）" />
+            <Input.Password placeholder="请输入新密码（至少8位，包含字母和数字）" />
           </Form.Item>
         </Form>
       </Modal>
