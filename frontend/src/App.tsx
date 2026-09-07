@@ -6,6 +6,7 @@ import GuestGuard from '@/components/guards/GuestGuard';
 import RoleGuard from '@/components/guards/RoleGuard';
 import PasswordChangeGuard from '@/components/guards/PasswordChangeGuard';
 import AdminLayout from '@/layouts/AdminLayout';
+import EmployeeLayout from '@/layouts/EmployeeLayout';
 import LoginPage from '@/pages/LoginPage';
 import PasswordChangePage from '@/pages/PasswordChangePage';
 import EmployeeDashboardPage from '@/pages/EmployeeDashboardPage';
@@ -13,6 +14,10 @@ import NotFoundPage from '@/pages/NotFoundPage';
 import NoPermissionPage from '@/pages/NoPermissionPage';
 import DepartmentPage from '@/pages/admin/DepartmentPage';
 import EmployeePage from '@/pages/admin/EmployeePage';
+import AnnouncementManagementPage from '@/pages/admin/AnnouncementManagementPage';
+import AnnouncementListPage from '@/pages/AnnouncementListPage';
+import AnnouncementDetailPage from '@/pages/AnnouncementDetailPage';
+import DirectoryPage from '@/pages/DirectoryPage';
 
 export default function App() {
   const { initAuth, initialized } = useAuthStore();
@@ -31,17 +36,25 @@ export default function App() {
         <Route path="/change-password" element={<AuthGuard><PasswordChangePage /></AuthGuard>} />
         <Route path="/no-permission" element={<NoPermissionPage />} />
 
-        {/* Employee dashboard (accessible by all authenticated users) */}
+        {/* Employee routes (includes department managers as EMPLOYEE role) */}
         <Route
-          path="/app/dashboard"
+          path="/app"
           element={
             <AuthGuard>
               <PasswordChangeGuard>
-                <EmployeeDashboardPage />
+                <RoleGuard roles={['EMPLOYEE']}>
+                  <EmployeeLayout />
+                </RoleGuard>
               </PasswordChangeGuard>
             </AuthGuard>
           }
-        />
+        >
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<EmployeeDashboardPage />} />
+          <Route path="announcements" element={<AnnouncementListPage />} />
+          <Route path="announcements/:id" element={<AnnouncementDetailPage />} />
+          <Route path="directory" element={<DirectoryPage />} />
+        </Route>
 
         {/* Admin routes */}
         <Route
@@ -59,11 +72,12 @@ export default function App() {
           <Route index element={<Navigate to="departments" replace />} />
           <Route path="departments" element={<DepartmentPage />} />
           <Route path="employees" element={<EmployeePage />} />
+          <Route path="announcements" element={<AnnouncementManagementPage />} />
+          <Route path="directory" element={<DirectoryPage />} />
         </Route>
 
         {/* Default: redirect to login — GuestGuard handles authenticated redirects */}
         <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/app" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>

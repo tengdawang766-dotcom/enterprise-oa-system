@@ -6,8 +6,11 @@ import { config } from './infrastructure/config';
 import { globalExceptionHandler } from './common/exception/global-exception-handler';
 import { authRouter } from './modules/auth/auth.controller';
 import { meRouter } from './modules/me/me.controller';
+import { meAnnouncementRouter } from './modules/me/me-announcement.controller';
 import { departmentRouter } from './modules/department/department.controller';
 import { userRouter } from './modules/user/user.controller';
+import { announcementRouter } from './modules/announcement/announcement.controller';
+import { directoryRouter } from './modules/directory/directory.controller';
 import { authenticationMiddleware, forcePasswordChangeMiddleware, requireRole } from './common/auth/authentication';
 
 export function createApp() {
@@ -43,6 +46,33 @@ export function createApp() {
     forcePasswordChangeMiddleware,
     requireRole('ADMIN'),
     userRouter
+  );
+
+  // Admin announcement management
+  app.use(
+    '/api/v1/announcements',
+    authenticationMiddleware,
+    forcePasswordChangeMiddleware,
+    requireRole('ADMIN'),
+    announcementRouter
+  );
+
+  // Employee announcements (under /me)
+  app.use(
+    '/api/v1/me/announcements',
+    authenticationMiddleware,
+    forcePasswordChangeMiddleware,
+    requireRole('EMPLOYEE'),
+    meAnnouncementRouter
+  );
+
+  // Directory (accessible by all authenticated users who completed password change)
+  app.use(
+    '/api/v1/directory',
+    authenticationMiddleware,
+    forcePasswordChangeMiddleware,
+    requireRole('ADMIN', 'EMPLOYEE'),
+    directoryRouter
   );
 
   // Health check

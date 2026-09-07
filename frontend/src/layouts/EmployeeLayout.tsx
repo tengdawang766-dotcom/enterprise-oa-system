@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu, Dropdown, Avatar, Space, Typography } from 'antd';
 import {
-  TeamOutlined,
-  BankOutlined,
+  MailOutlined,
+  PhoneOutlined,
+  DashboardOutlined,
   UserOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  MailOutlined,
-  PhoneOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '@/stores/auth';
 import type { MenuProps } from 'antd';
@@ -17,30 +16,25 @@ import type { MenuProps } from 'antd';
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
-const adminMenuItems: MenuProps['items'] = [
+const employeeMenuItems: MenuProps['items'] = [
   {
-    key: '/app/admin/departments',
-    icon: <BankOutlined />,
-    label: '部门管理',
+    key: '/app/dashboard',
+    icon: <DashboardOutlined />,
+    label: '工作台',
   },
   {
-    key: '/app/admin/employees',
-    icon: <TeamOutlined />,
-    label: '员工管理',
-  },
-  {
-    key: '/app/admin/announcements',
+    key: '/app/announcements',
     icon: <MailOutlined />,
-    label: '公告管理',
+    label: '公告',
   },
   {
-    key: '/app/admin/directory',
+    key: '/app/directory',
     icon: <PhoneOutlined />,
     label: '通讯录',
   },
 ];
 
-export default function AdminLayout() {
+export default function EmployeeLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
@@ -53,12 +47,26 @@ export default function AdminLayout() {
 
   const userMenuItems: MenuProps['items'] = [
     {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: '个人资料',
+      onClick: () => navigate('/app/profile'),
+    },
+    {
       key: 'logout',
       icon: <LogoutOutlined />,
       label: '退出登录',
       onClick: handleLogout,
     },
   ];
+
+  // Determine selected key from path
+  const getSelectedKey = () => {
+    const path = location.pathname;
+    if (path.startsWith('/app/announcements')) return '/app/announcements';
+    if (path.startsWith('/app/directory')) return '/app/directory';
+    return '/app/dashboard';
+  };
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -71,8 +79,8 @@ export default function AdminLayout() {
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={[location.pathname]}
-          items={adminMenuItems}
+          selectedKeys={[getSelectedKey()]}
+          items={employeeMenuItems}
           onClick={({ key }) => navigate(key)}
         />
       </Sider>
