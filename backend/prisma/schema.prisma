@@ -155,4 +155,6 @@ enum LeaveAction {
   APPROVED
   REJECTED
   CANCELLED
+  EDITED
+  RESUBMITTED
 }

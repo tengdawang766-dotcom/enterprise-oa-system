@@ -50,10 +50,12 @@ async function loginAs(username: string, password: string): Promise<string[]> {
 
 beforeAll(async () => {
   // Clean up test data (respect foreign key order)
-  await prisma.leaveActionLog.deleteMany({});
-  await prisma.leaveRequest.deleteMany({});
-  await prisma.announcementRead.deleteMany({});
-  await prisma.announcement.deleteMany({});
+  await prisma.announcementRead.deleteMany({
+    where: { announcement: { publisher: { username: { in: [ADMIN_USER.username, EMPLOYEE_USER.username, 'day2_emp_a', 'day2_emp_b', 'day2_emp_c'] } } } },
+  });
+  await prisma.announcement.deleteMany({
+    where: { publisher: { username: { in: [ADMIN_USER.username, EMPLOYEE_USER.username, 'day2_emp_a', 'day2_emp_b', 'day2_emp_c'] } } },
+  });
 
   // Delete test users and departments
   await prisma.user.deleteMany({
@@ -116,10 +118,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Cleanup
-  await prisma.leaveActionLog.deleteMany({});
-  await prisma.leaveRequest.deleteMany({});
-  await prisma.announcementRead.deleteMany({});
-  await prisma.announcement.deleteMany({});
+  await prisma.announcementRead.deleteMany({
+    where: { announcement: { publisher: { username: { in: [ADMIN_USER.username, EMPLOYEE_USER.username, 'day2_emp_a', 'day2_emp_b', 'day2_emp_c'] } } } },
+  });
+  await prisma.announcement.deleteMany({
+    where: { publisher: { username: { in: [ADMIN_USER.username, EMPLOYEE_USER.username, 'day2_emp_a', 'day2_emp_b', 'day2_emp_c'] } } },
+  });
   await prisma.user.deleteMany({
     where: { username: { in: [ADMIN_USER.username, EMPLOYEE_USER.username, 'day2_emp_a', 'day2_emp_b', 'day2_emp_c'] } },
   });

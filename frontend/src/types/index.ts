@@ -119,3 +119,47 @@ export interface DirectoryDepartment {
   id: number;
   name: string;
 }
+
+// ---- Leave ----
+
+export interface LeaveRequest {
+  id: number;
+  leaveType: 'PERSONAL' | 'SICK' | 'ANNUAL';
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  stateVersion: number;
+  applicant?: { id: number; name: string };
+  submittedDepartment?: { id: number; name: string };
+  approver?: { id: number; name: string };
+  createdAt: string;
+  updatedAt?: string;
+  finalAction?: {
+    action: string;
+    operatorName: string;
+    comment: string | null;
+    createdAt: string;
+  };
+}
+
+export interface LeaveActionLog {
+  id: number;
+  action: 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'CANCELLED' | 'EDITED' | 'RESUBMITTED';
+  operatorId: number;
+  operatorName: string;
+  comment: string | null;
+  stateVersion: number;
+  createdAt: string;
+}
+
+export interface LeaveDetail extends LeaveRequest {
+  actionLogs?: LeaveActionLog[];
+  finalAction?: {
+    action: string;
+    operatorName: string;
+    comment: string | null;
+    createdAt: string;
+  };
+}

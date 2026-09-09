@@ -9,6 +9,8 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  FileTextOutlined,
+  AuditOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '@/stores/auth';
 import type { MenuProps } from 'antd';
@@ -16,29 +18,50 @@ import type { MenuProps } from 'antd';
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
-const employeeMenuItems: MenuProps['items'] = [
-  {
-    key: '/app/dashboard',
-    icon: <DashboardOutlined />,
-    label: '工作台',
-  },
-  {
-    key: '/app/announcements',
-    icon: <MailOutlined />,
-    label: '公告',
-  },
-  {
+function getEmployeeMenuItems(isManager: boolean): MenuProps['items'] {
+  const items: MenuProps['items'] = [
+    {
+      key: '/app/dashboard',
+      icon: <DashboardOutlined />,
+      label: '工作台',
+    },
+    {
+      key: '/app/announcements',
+      icon: <MailOutlined />,
+      label: '公告',
+    },
+    {
+      key: '/app/leave',
+      icon: <FileTextOutlined />,
+      label: '我的请假',
+    },
+  ];
+
+  if (isManager) {
+    items!.push({
+      key: '/app/approvals',
+      icon: <AuditOutlined />,
+      label: '请假审批',
+    });
+  }
+
+  items!.push({
     key: '/app/directory',
     icon: <PhoneOutlined />,
     label: '通讯录',
-  },
-];
+  });
+
+  return items;
+}
 
 export default function EmployeeLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const isManager = user?.isDepartmentManager ?? false;
+  const menuItems = getEmployeeMenuItems(isManager);
 
   const handleLogout = async () => {
     await logout();
@@ -64,6 +87,8 @@ export default function EmployeeLayout() {
   const getSelectedKey = () => {
     const path = location.pathname;
     if (path.startsWith('/app/announcements')) return '/app/announcements';
+    if (path.startsWith('/app/leave')) return '/app/leave';
+    if (path.startsWith('/app/approvals')) return '/app/approvals';
     if (path.startsWith('/app/directory')) return '/app/directory';
     return '/app/dashboard';
   };
@@ -80,7 +105,7 @@ export default function EmployeeLayout() {
           theme="dark"
           mode="inline"
           selectedKeys={[getSelectedKey()]}
-          items={employeeMenuItems}
+          items={menuItems}
           onClick={({ key }) => navigate(key)}
         />
       </Sider>

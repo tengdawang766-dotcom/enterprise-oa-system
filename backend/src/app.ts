@@ -11,6 +11,9 @@ import { departmentRouter } from './modules/department/department.controller';
 import { userRouter } from './modules/user/user.controller';
 import { announcementRouter } from './modules/announcement/announcement.controller';
 import { directoryRouter } from './modules/directory/directory.controller';
+import { leaveRouter } from './modules/leave/leave.controller';
+import { meLeaveRouter } from './modules/me/me-leave.controller';
+import { meApprovalRouter } from './modules/me/me-approval.controller';
 import { authenticationMiddleware, forcePasswordChangeMiddleware, requireRole } from './common/auth/authentication';
 
 export function createApp() {
@@ -73,6 +76,33 @@ export function createApp() {
     forcePasswordChangeMiddleware,
     requireRole('ADMIN', 'EMPLOYEE'),
     directoryRouter
+  );
+
+  // Leave requests - employee actions (create, cancel, approve, reject, edit, resubmit)
+  app.use(
+    '/api/v1/leave-requests',
+    authenticationMiddleware,
+    forcePasswordChangeMiddleware,
+    requireRole('EMPLOYEE'),
+    leaveRouter
+  );
+
+  // My leave requests (employee queries)
+  app.use(
+    '/api/v1/me/leave-requests',
+    authenticationMiddleware,
+    forcePasswordChangeMiddleware,
+    requireRole('EMPLOYEE'),
+    meLeaveRouter
+  );
+
+  // Approval endpoints (manager queries)
+  app.use(
+    '/api/v1/me',
+    authenticationMiddleware,
+    forcePasswordChangeMiddleware,
+    requireRole('EMPLOYEE'),
+    meApprovalRouter
   );
 
   // Health check

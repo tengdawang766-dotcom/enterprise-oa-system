@@ -18,6 +18,10 @@ import AnnouncementManagementPage from '@/pages/admin/AnnouncementManagementPage
 import AnnouncementListPage from '@/pages/AnnouncementListPage';
 import AnnouncementDetailPage from '@/pages/AnnouncementDetailPage';
 import DirectoryPage from '@/pages/DirectoryPage';
+import MyLeaveListPage from '@/pages/MyLeaveListPage';
+import LeaveFormPage from '@/pages/LeaveFormPage';
+import LeaveDetailPage from '@/pages/LeaveDetailPage';
+import ApprovalPage from '@/pages/ApprovalPage';
 
 export default function App() {
   const { initAuth, initialized } = useAuthStore();
@@ -54,6 +58,12 @@ export default function App() {
           <Route path="announcements" element={<AnnouncementListPage />} />
           <Route path="announcements/:id" element={<AnnouncementDetailPage />} />
           <Route path="directory" element={<DirectoryPage />} />
+          <Route path="leave" element={<MyLeaveListPage />} />
+          <Route path="leave/new" element={<LeaveFormPage />} />
+          <Route path="leave/:id/edit" element={<LeaveFormPage />} />
+          <Route path="leave/:id" element={<LeaveDetailPage />} />
+          <Route path="approvals" element={<ApprovalPage />} />
+          <Route path="approvals/:id" element={<LeaveDetailPage />} />
         </Route>
 
         {/* Admin routes */}

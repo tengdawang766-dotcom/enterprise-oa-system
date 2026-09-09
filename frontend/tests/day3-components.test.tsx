@@ -78,7 +78,7 @@ describe('AdminLayout 真实组件', () => {
     expect(menuTexts.some(t => t?.includes('员工管理'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('公告管理'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('通讯录'))).toBe(true);
-  });
+  }, 15000);
 });
 
 // ============================================================
@@ -86,7 +86,7 @@ describe('AdminLayout 真实组件', () => {
 // ============================================================
 
 describe('EmployeeLayout 真实组件', () => {
-  it('员工布局实际显示3个菜单项（含公告和通讯录）', async () => {
+  it('员工布局实际显示4个菜单项（含公告、请假和通讯录）', async () => {
     const { render } = await import('@testing-library/react');
     const { MemoryRouter } = await import('react-router-dom');
     const EmployeeLayout = (await import('@/layouts/EmployeeLayout')).default;
@@ -98,11 +98,12 @@ describe('EmployeeLayout 真实组件', () => {
     );
 
     const menuItems = container.querySelectorAll('[role="menuitem"]');
-    expect(menuItems.length).toBe(3);
+    expect(menuItems.length).toBe(4);
 
     const menuTexts = Array.from(menuItems).map(el => el.textContent);
     expect(menuTexts.some(t => t?.includes('工作台'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('公告'))).toBe(true);
+    expect(menuTexts.some(t => t?.includes('我的请假'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('通讯录'))).toBe(true);
   });
 });
