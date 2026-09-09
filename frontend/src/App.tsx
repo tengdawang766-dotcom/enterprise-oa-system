@@ -22,6 +22,7 @@ import MyLeaveListPage from '@/pages/MyLeaveListPage';
 import LeaveFormPage from '@/pages/LeaveFormPage';
 import LeaveDetailPage from '@/pages/LeaveDetailPage';
 import ApprovalPage from '@/pages/ApprovalPage';
+import ProfilePage from '@/pages/ProfilePage';
 
 export default function App() {
   const { initAuth, initialized } = useAuthStore();
@@ -55,6 +56,7 @@ export default function App() {
         >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<EmployeeDashboardPage />} />
+          <Route path="profile" element={<ProfilePage />} />
           <Route path="announcements" element={<AnnouncementListPage />} />
           <Route path="announcements/:id" element={<AnnouncementDetailPage />} />
           <Route path="directory" element={<DirectoryPage />} />
@@ -84,6 +86,7 @@ export default function App() {
           <Route path="employees" element={<EmployeePage />} />
           <Route path="announcements" element={<AnnouncementManagementPage />} />
           <Route path="directory" element={<DirectoryPage />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* Default: redirect to login — GuestGuard handles authenticated redirects */}

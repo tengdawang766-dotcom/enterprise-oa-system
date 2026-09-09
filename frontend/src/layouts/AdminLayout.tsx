@@ -53,6 +53,12 @@ export default function AdminLayout() {
 
   const userMenuItems: MenuProps['items'] = [
     {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: '个人资料',
+      onClick: () => navigate('/app/admin/profile'),
+    },
+    {
       key: 'logout',
       icon: <LogoutOutlined />,
       label: '退出登录',
