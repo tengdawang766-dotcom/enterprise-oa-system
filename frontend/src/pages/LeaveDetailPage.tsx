@@ -4,55 +4,26 @@ import { Descriptions, Tag, Button, Timeline, Spin, Result, Card, Empty, Space }
 import { ArrowLeftOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import type { LeaveDetail, LeaveActionLog } from '@/types';
 import { getMyLeaveDetail, getApprovalDetail } from '@/api/leave';
+import {
+  LEAVE_STATUS_LABEL,
+  LEAVE_STATUS_COLOR,
+  LEAVE_TYPE_LABEL,
+  LEAVE_ACTION_LABEL,
+  LEAVE_ACTION_COLOR,
+} from '@/utils/status-labels';
 
-const STATUS_COLOR: Record<string, string> = {
-  PENDING: 'processing',
-  APPROVED: 'success',
-  REJECTED: 'error',
-  CANCELLED: 'default',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: '审批中',
-  APPROVED: '已通过',
-  REJECTED: '已驳回',
-  CANCELLED: '已撤回',
-};
-
-const LEAVE_TYPE_LABEL: Record<string, string> = {
-  PERSONAL: '事假',
-  SICK: '病假',
-  ANNUAL: '年假',
-};
-
-const ACTION_LABEL: Record<string, string> = {
-  SUBMITTED: '提交',
-  APPROVED: '通过',
-  REJECTED: '驳回',
-  CANCELLED: '撤回',
-  EDITED: '修改',
-  RESUBMITTED: '重新提交',
-};
-
-const ACTION_COLOR: Record<string, string> = {
-  SUBMITTED: 'blue',
-  APPROVED: 'green',
-  REJECTED: 'red',
-  CANCELLED: 'gray',
-  EDITED: 'orange',
-  RESUBMITTED: 'blue',
-};
+import { formatDate, formatDateTime } from '@/utils/date-format';
 
 function TimelineItemContent({ log }: { log: LeaveActionLog }) {
   return (
     <div>
       <div style={{ marginBottom: 4 }}>
-        <Tag color={ACTION_COLOR[log.action] || 'default'}>
-          {ACTION_LABEL[log.action] || log.action}
+        <Tag color={LEAVE_ACTION_COLOR[log.action] || 'default'}>
+          {LEAVE_ACTION_LABEL[log.action] || log.action}
         </Tag>
         <span style={{ fontWeight: 500 }}>{log.operatorName}</span>
         <span style={{ color: '#999', marginLeft: 8 }}>
-          {new Date(log.createdAt).toLocaleString('zh-CN')}
+          {formatDateTime(log.createdAt)}
         </span>
       </div>
       {log.comment && (
@@ -107,7 +78,7 @@ export default function LeaveDetailPage() {
         extra={
           <Space>
             <Button onClick={() => navigate(-1)}>返回</Button>
-            <Button type="primary" onClick={() => window.location.reload()}>重试</Button>
+            <Button type="primary" onClick={() => { setLoading(true); setError(null); const fetchFn = isApprovalView ? getApprovalDetail : getMyLeaveDetail; fetchFn(Number(id)).then(setData).catch((e: any) => setError(e?.response?.data?.error?.message || '加载请假详情失败')).finally(() => setLoading(false)); }}>重试</Button>
           </Space>
         }
       />
@@ -141,13 +112,13 @@ export default function LeaveDetailPage() {
             {LEAVE_TYPE_LABEL[data.leaveType] || data.leaveType}
           </Descriptions.Item>
           <Descriptions.Item label="状态">
-            <Tag color={STATUS_COLOR[data.status]}>{STATUS_LABEL[data.status] || data.status}</Tag>
+            <Tag color={LEAVE_STATUS_COLOR[data.status]}>{LEAVE_STATUS_LABEL[data.status] || data.status}</Tag>
           </Descriptions.Item>
           <Descriptions.Item label="开始日期">
-            {data.startDate?.slice(0, 10)}
+            {formatDate(data.startDate)}
           </Descriptions.Item>
           <Descriptions.Item label="结束日期">
-            {data.endDate?.slice(0, 10)}
+            {formatDate(data.endDate)}
           </Descriptions.Item>
           <Descriptions.Item label="请假天数">{data.days} 天</Descriptions.Item>
           <Descriptions.Item label="审批人">
@@ -157,7 +128,7 @@ export default function LeaveDetailPage() {
             {data.reason}
           </Descriptions.Item>
           <Descriptions.Item label="申请时间" span={2}>
-            {data.createdAt ? new Date(data.createdAt).toLocaleString('zh-CN') : '-'}
+            {formatDateTime(data.createdAt)}
           </Descriptions.Item>
         </Descriptions>
       </Card>
@@ -168,7 +139,7 @@ export default function LeaveDetailPage() {
         ) : (
           <Timeline
             items={actionLogs.map((log) => ({
-              color: ACTION_COLOR[log.action] || 'gray',
+              color: LEAVE_ACTION_COLOR[log.action] || 'gray',
               dot: <ClockCircleOutlined style={{ fontSize: 14 }} />,
               children: <TimelineItemContent log={log} />,
             }))}

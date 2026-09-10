@@ -12,23 +12,16 @@ import { useAuthStore } from '@/stores/auth';
 const { Title } = Typography;
 const { TextArea } = Input;
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  PENDING: { label: '待审批', color: 'orange' },
-  APPROVED: { label: '已通过', color: 'green' },
-  REJECTED: { label: '已驳回', color: 'red' },
-  CANCELLED: { label: '已撤销', color: 'default' },
-};
-
-const LEAVE_TYPE_MAP: Record<string, string> = {
-  PERSONAL: '事假',
-  SICK: '病假',
-  ANNUAL: '年假',
-};
+import { LEAVE_STATUS_LABEL, LEAVE_STATUS_COLOR, LEAVE_TYPE_LABEL } from '@/utils/status-labels';
 
 export default function ApprovalPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState('pending');
+
+  // Error state
+  const [pendingError, setPendingError] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   // Pending tasks state
   const [pendingData, setPendingData] = useState<LeaveRequest[]>([]);
@@ -57,13 +50,14 @@ export default function ApprovalPage() {
 
   const fetchPending = useCallback(async (p = 1) => {
     setPendingLoading(true);
+    setPendingError(null);
     try {
       const result = await getApprovalTasks({ page: p, pageSize });
       setPendingData(result.items);
       setPendingTotal(result.pagination.total);
       setPendingPage(result.pagination.page);
     } catch (err: any) {
-      message.error(err?.response?.data?.error?.message || '加载待审批列表失败');
+      setPendingError(err?.response?.data?.error?.message || '加载待审批列表失败');
     } finally {
       setPendingLoading(false);
     }
@@ -71,13 +65,14 @@ export default function ApprovalPage() {
 
   const fetchHistory = useCallback(async (p = 1) => {
     setHistoryLoading(true);
+    setHistoryError(null);
     try {
       const result = await getApprovalHistory({ page: p, pageSize });
       setHistoryData(result.items);
       setHistoryTotal(result.pagination.total);
       setHistoryPage(result.pagination.page);
     } catch (err: any) {
-      message.error(err?.response?.data?.error?.message || '加载审批历史失败');
+      setHistoryError(err?.response?.data?.error?.message || '加载审批历史失败');
     } finally {
       setHistoryLoading(false);
     }
@@ -172,7 +167,7 @@ export default function ApprovalPage() {
       title: '请假类型',
       dataIndex: 'leaveType',
       key: 'leaveType',
-      render: (val: string) => LEAVE_TYPE_MAP[val] || val,
+      render: (val: string) => LEAVE_TYPE_LABEL[val] || val,
     },
     {
       title: '起止日期',
@@ -245,7 +240,7 @@ export default function ApprovalPage() {
       title: '请假类型',
       dataIndex: 'leaveType',
       key: 'leaveType',
-      render: (val: string) => LEAVE_TYPE_MAP[val] || val,
+      render: (val: string) => LEAVE_TYPE_LABEL[val] || val,
     },
     {
       title: '起止日期',
@@ -257,8 +252,7 @@ export default function ApprovalPage() {
       dataIndex: 'status',
       key: 'status',
       render: (val: string) => {
-        const cfg = STATUS_MAP[val] || { label: val, color: 'default' };
-        return <Tag color={cfg.color}>{cfg.label}</Tag>;
+        return <Tag color={LEAVE_STATUS_COLOR[val] || 'default'}>{LEAVE_STATUS_LABEL[val] || val}</Tag>;
       },
     },
     {
@@ -293,6 +287,14 @@ export default function ApprovalPage() {
         </Badge>
       ),
       children: (
+        pendingError && pendingData.length === 0 ? (
+          <Result
+            status="error"
+            title="加载失败"
+            subTitle={pendingError}
+            extra={<Button onClick={() => fetchPending(pendingPage)}>重试</Button>}
+          />
+        ) : (
         <Table
           rowKey="id"
           columns={pendingColumns}
@@ -306,12 +308,21 @@ export default function ApprovalPage() {
             showTotal: (t) => `共 ${t} 条`,
           }}
         />
+        )
       ),
     },
     {
       key: 'history',
       label: '审批历史',
       children: (
+        historyError && historyData.length === 0 ? (
+          <Result
+            status="error"
+            title="加载失败"
+            subTitle={historyError}
+            extra={<Button onClick={() => fetchHistory(historyPage)}>重试</Button>}
+          />
+        ) : (
         <Table
           rowKey="id"
           columns={historyColumns}
@@ -325,6 +336,7 @@ export default function ApprovalPage() {
             showTotal: (t) => `共 ${t} 条`,
           }}
         />
+        )
       ),
     },
   ];

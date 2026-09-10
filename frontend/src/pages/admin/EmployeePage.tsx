@@ -27,12 +27,11 @@ import type { User, Department } from '@/types';
 import { getUsers, createUser, updateUser, transferDepartment, resetPassword, disableUser } from '@/api/users';
 import { getDepartments } from '@/api/departments';
 import { PASSWORD_RULES } from '@/utils/password-rules';
+import { USER_STATUS_LABEL, USER_STATUS_COLOR } from '@/utils/status-labels';
 
-// helper: role label
+// helper: role label (admin-specific, not in shared file)
 const roleLabel: Record<string, string> = { ADMIN: '管理员', EMPLOYEE: '员工' };
 const roleColor: Record<string, string> = { ADMIN: 'red', EMPLOYEE: 'blue' };
-const statusLabel: Record<string, string> = { ENABLED: '启用', DISABLED: '停用' };
-const statusColor: Record<string, string> = { ENABLED: 'green', DISABLED: 'default' };
 
 export default function EmployeePage() {
   // ---- list state ----
@@ -363,7 +362,7 @@ export default function EmployeePage() {
       dataIndex: 'status',
       key: 'status',
       width: 80,
-      render: (val: string) => <Tag color={statusColor[val]}>{statusLabel[val] ?? val}</Tag>,
+      render: (val: string) => <Tag color={USER_STATUS_COLOR[val]}>{USER_STATUS_LABEL[val] ?? val}</Tag>,
     },
     {
       title: '操作',

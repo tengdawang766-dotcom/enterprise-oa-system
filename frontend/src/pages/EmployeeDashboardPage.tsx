@@ -27,28 +27,11 @@ import {
 } from '@ant-design/icons';
 import { getDashboard, type DashboardData } from '@/api/dashboard';
 import dayjs from 'dayjs';
+import { formatDateTime, formatShortDate } from '@/utils/date-format';
 
 const { Title, Text } = Typography;
 
-const leaveTypeLabels: Record<string, string> = {
-  PERSONAL: '事假',
-  SICK: '病假',
-  ANNUAL: '年假',
-};
-
-const leaveStatusLabels: Record<string, string> = {
-  PENDING: '待审批',
-  APPROVED: '已通过',
-  REJECTED: '已驳回',
-  CANCELLED: '已撤回',
-};
-
-const leaveStatusColors: Record<string, string> = {
-  PENDING: 'processing',
-  APPROVED: 'success',
-  REJECTED: 'error',
-  CANCELLED: 'default',
-};
+import { LEAVE_TYPE_LABEL, LEAVE_STATUS_LABEL, LEAVE_STATUS_COLOR } from '@/utils/status-labels';
 
 export default function EmployeeDashboardPage() {
   const navigate = useNavigate();
@@ -207,7 +190,7 @@ export default function EmployeeDashboardPage() {
                       }
                       description={
                         item.publishedAt
-                          ? dayjs(item.publishedAt).format('YYYY-MM-DD HH:mm')
+                          ? formatDateTime(item.publishedAt)
                           : '-'
                       }
                     />
@@ -249,16 +232,16 @@ export default function EmployeeDashboardPage() {
                     <List.Item.Meta
                       title={
                         <Space>
-                          <span>{leaveTypeLabels[item.leaveType] || item.leaveType}</span>
-                          <Tag color={leaveStatusColors[item.status]}>
-                            {leaveStatusLabels[item.status] || item.status}
+                          <span>{LEAVE_TYPE_LABEL[item.leaveType] || item.leaveType}</span>
+                          <Tag color={LEAVE_STATUS_COLOR[item.status]}>
+                            {LEAVE_STATUS_LABEL[item.status] || item.status}
                           </Tag>
                         </Space>
                       }
                       description={
                         <Space>
                           <span>
-                            {dayjs(item.startDate).format('MM-DD')} ~ {dayjs(item.endDate).format('MM-DD')}
+                            {formatShortDate(item.startDate)} ~ {formatShortDate(item.endDate)}
                           </span>
                           <span>{item.days}天</span>
                         </Space>
@@ -298,13 +281,13 @@ export default function EmployeeDashboardPage() {
                         title={
                           <Space>
                             <span>{item.applicantName}</span>
-                            <Tag>{leaveTypeLabels[item.leaveType] || item.leaveType}</Tag>
+                            <Tag>{LEAVE_TYPE_LABEL[item.leaveType] || item.leaveType}</Tag>
                           </Space>
                         }
                         description={
                           <Space direction="vertical" size={0}>
                             <span>
-                              {dayjs(item.startDate).format('MM-DD')} ~ {dayjs(item.endDate).format('MM-DD')} · {item.days}天
+                              {formatShortDate(item.startDate)} ~ {formatShortDate(item.endDate)} · {item.days}天
                             </span>
                             <Text type="secondary" ellipsis style={{ maxWidth: 400 }}>
                               {item.reason}

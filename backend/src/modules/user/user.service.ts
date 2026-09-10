@@ -173,7 +173,7 @@ export class UserService {
   }
 
   async update(id: number, dto: UpdateUserRequest) {
-    const user = await prisma.user.findUnique({ where: { id } });
+    const user = await prisma.user.findUnique({ where: { id }, select: { id: true } });
     if (!user) {
       throw BusinessException.notFound(ErrorCode.RESOURCE_NOT_FOUND, '用户不存在');
     }

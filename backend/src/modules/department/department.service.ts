@@ -26,10 +26,21 @@ export class DepartmentService {
       );
     }
 
-    const dept = await prisma.department.create({
-      data: { name: dto.name },
-      select: { id: true, name: true, managerUserId: true, createdAt: true },
-    });
+    let dept;
+    try {
+      dept = await prisma.department.create({
+        data: { name: dto.name },
+        select: { id: true, name: true, managerUserId: true, createdAt: true },
+      });
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        throw BusinessException.conflict(
+          ErrorCode.DEPARTMENT_NAME_ALREADY_EXISTS,
+          '部门名称已存在'
+        );
+      }
+      throw e;
+    }
 
     return {
       id: dept.id,

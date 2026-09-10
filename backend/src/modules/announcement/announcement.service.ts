@@ -355,9 +355,10 @@ export class AnnouncementService {
 
     // Upsert read record - use raw SQL for ON DUPLICATE KEY behavior
     // to ensure first_read_at is never overwritten
+    const now = new Date();
     await prisma.$executeRaw`
       INSERT INTO announcement_reads (announcement_id, user_id, first_read_at)
-      VALUES (${announcementId}, ${userId}, NOW())
+      VALUES (${announcementId}, ${userId}, ${now})
       ON DUPLICATE KEY UPDATE first_read_at = first_read_at
     `;
 

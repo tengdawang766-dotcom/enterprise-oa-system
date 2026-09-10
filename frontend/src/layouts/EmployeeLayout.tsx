@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu, Dropdown, Avatar, Space, Typography } from 'antd';
 import {
@@ -83,15 +83,15 @@ export default function EmployeeLayout() {
     },
   ];
 
-  // Determine selected key from path
-  const getSelectedKey = () => {
+  // Determine selected key from path (memoized to avoid infinite re-renders)
+  const selectedKeys = useMemo(() => {
     const path = location.pathname;
-    if (path.startsWith('/app/announcements')) return '/app/announcements';
-    if (path.startsWith('/app/leave')) return '/app/leave';
-    if (path.startsWith('/app/approvals')) return '/app/approvals';
-    if (path.startsWith('/app/directory')) return '/app/directory';
-    return '/app/dashboard';
-  };
+    if (path.startsWith('/app/announcements')) return ['/app/announcements'];
+    if (path.startsWith('/app/leave')) return ['/app/leave'];
+    if (path.startsWith('/app/approvals')) return ['/app/approvals'];
+    if (path.startsWith('/app/directory')) return ['/app/directory'];
+    return ['/app/dashboard'];
+  }, [location.pathname]);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -104,7 +104,7 @@ export default function EmployeeLayout() {
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={[getSelectedKey()]}
+          selectedKeys={selectedKeys}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />

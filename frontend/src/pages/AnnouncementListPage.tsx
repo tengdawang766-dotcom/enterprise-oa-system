@@ -4,6 +4,7 @@ import { List, Input, Tag, Button, Result, Typography, Space, Empty, Radio } fro
 import { SearchOutlined, MailOutlined } from '@ant-design/icons';
 import type { EmployeeAnnouncementItem } from '@/types';
 import { getMyAnnouncements } from '@/api/announcements';
+import { formatDateTime } from '@/utils/date-format';
 
 const { Title, Text } = Typography;
 
@@ -131,7 +132,7 @@ export default function AnnouncementListPage() {
                 }
                 description={
                   <Text type="secondary">
-                    发布时间：{item.publishedAt ? new Date(item.publishedAt).toLocaleString('zh-CN') : '-'}
+                    发布时间：{formatDateTime(item.publishedAt)}
                   </Text>
                 }
               />

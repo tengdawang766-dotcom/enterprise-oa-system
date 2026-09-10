@@ -1,6 +1,7 @@
 import { prisma } from '../../infrastructure/database/prisma';
 import { BusinessException } from '../../common/exception/business-exception';
 import { ErrorCode } from '../../common/exception/error-code';
+import { formatDateOnly, formatTimestamp } from '../../common/utils/date-format';
 import type { UpdateContactRequest } from './dto/me.dto';
 
 export class MeService {
@@ -227,21 +228,32 @@ export class MeService {
     const formattedAnnouncements = recentAnnouncements.map((a) => ({
       id: a.id,
       title: a.title,
-      publishedAt: a.publishedAt,
+      publishedAt: formatTimestamp(a.publishedAt),
       read: a.reads.length > 0,
-      firstReadAt: a.reads[0]?.firstReadAt || null,
+      firstReadAt: formatTimestamp(a.reads[0]?.firstReadAt),
     }));
 
-    // 5. Format recent pending approvals (manager only)
+    // 5. Format recent leaves with consistent date formatting
+    const formattedLeaves = recentLeaves.map((lr) => ({
+      id: lr.id,
+      leaveType: lr.leaveType,
+      startDate: formatDateOnly(lr.startDate),
+      endDate: formatDateOnly(lr.endDate),
+      days: lr.days,
+      status: lr.status,
+      createdAt: formatTimestamp(lr.createdAt),
+    }));
+
+    // 6. Format recent pending approvals (manager only)
     const formattedApprovals = recentPendingApprovals.map((a) => ({
       id: a.id,
       applicantName: a.applicantNameSnapshot,
       leaveType: a.leaveType,
-      startDate: a.startDate,
-      endDate: a.endDate,
+      startDate: formatDateOnly(a.startDate),
+      endDate: formatDateOnly(a.endDate),
       days: a.days,
       reason: a.reason,
-      createdAt: a.createdAt,
+      createdAt: formatTimestamp(a.createdAt),
     }));
 
     // 6. Build response
@@ -259,7 +271,7 @@ export class MeService {
         rejected: statsMap.REJECTED,
         cancelled: statsMap.CANCELLED,
       },
-      recentLeaves,
+      recentLeaves: formattedLeaves,
       ...(isDepartmentManager && {
         pendingApprovalCount,
         recentPendingApprovals: formattedApprovals,

@@ -78,7 +78,7 @@ describe('AdminLayout 真实组件', () => {
     expect(menuTexts.some(t => t?.includes('员工管理'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('公告管理'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('通讯录'))).toBe(true);
-  }, 15000);
+  }, 10000);
 });
 
 // ============================================================
@@ -105,7 +105,7 @@ describe('EmployeeLayout 真实组件', () => {
     expect(menuTexts.some(t => t?.includes('公告'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('我的请假'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('通讯录'))).toBe(true);
-  });
+  }, 10000);
 });
 
 // ============================================================

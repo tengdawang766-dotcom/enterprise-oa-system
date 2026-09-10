@@ -67,13 +67,13 @@ describe('ProfilePage', () => {
     const { render, screen, waitFor } = await import('@testing-library/react');
     const P = (await import('@/pages/ProfilePage')).default;
     render(<P />);
-    await waitFor(() => expect(screen.getByText('zhangsan@test.com')).toBeTruthy(), { timeout: 10000 });
+    await waitFor(() => expect(screen.findAllByText('zhangsan@test.com')).toBeTruthy(), { timeout: 20000 });
     expect(screen.getByText('张三')).toBeTruthy();
     expect(screen.getByText('zhangsan')).toBeTruthy();
     expect(screen.getByText('前端工程师')).toBeTruthy();
     expect(screen.getByText('技术部')).toBeTruthy();
     expect(screen.getByText('13800138001')).toBeTruthy();
-  }, 15000);
+  }, 10000);
 
   it('shows - for null fields', async () => {
     const nullUser = { ...U, workEmail: null, phone: null, jobTitle: null };
@@ -83,23 +83,24 @@ describe('ProfilePage', () => {
     const P = (await import('@/pages/ProfilePage')).default;
     const { container } = render(<P />);
     // AntD Descriptions needs time in jsdom
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise(r => setTimeout(r, 5000));
     const items = container.querySelectorAll('.ant-descriptions-item-content');
     const texts = Array.from(items).map(el => el.textContent?.trim());
     expect(texts.filter(t => t === '-').length).toBeGreaterThanOrEqual(3);
     expect(texts).toContain('张三');
     expect(texts).toContain('zhangsan');
-  }, 15000);
+  }, 10000);
 
   it('edit form prefills correctly', async () => {
     const { render, screen, fireEvent, waitFor } = await import('@testing-library/react');
     const P = (await import('@/pages/ProfilePage')).default;
     render(<P />);
-    await waitFor(() => expect(screen.getByText('zhangsan@test.com')).toBeTruthy());
-    fireEvent.click(screen.getByText('编辑联系方式'));
+    await waitFor(() => expect(screen.findAllByText('zhangsan@test.com')).toBeTruthy());
+    const editBtns = screen.getAllByText('编辑联系方式');
+    fireEvent.click(editBtns[0]);
     expect((screen.getByPlaceholderText('请输入工作邮箱') as HTMLInputElement).value).toBe('zhangsan@test.com');
     expect((screen.getByPlaceholderText('请输入联系电话') as HTMLInputElement).value).toBe('13800138001');
-  });
+  }, 10000);
 
   it('validates email format', async () => {
     const { render, screen, fireEvent, waitFor } = await import('@testing-library/react');

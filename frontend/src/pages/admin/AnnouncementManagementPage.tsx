@@ -41,14 +41,11 @@ import {
   getUnreadList,
 } from '@/api/announcements';
 
+import { ANNOUNCEMENT_STATUS_LABEL, ANNOUNCEMENT_STATUS_COLOR } from '@/utils/status-labels';
+import { formatDateTime } from '@/utils/date-format';
+
 const { TextArea } = Input;
 const { Title } = Typography;
-
-const statusConfig: Record<string, { label: string; color: string }> = {
-  DRAFT: { label: '草稿', color: 'default' },
-  PUBLISHED: { label: '已发布', color: 'green' },
-  WITHDRAWN: { label: '已撤回', color: 'orange' },
-};
 
 export default function AnnouncementManagementPage() {
   // ---- list state ----
@@ -278,8 +275,9 @@ export default function AnnouncementManagementPage() {
       key: 'status',
       width: 100,
       render: (status: string) => {
-        const cfg = statusConfig[status];
-        return cfg ? <Tag color={cfg.color}>{cfg.label}</Tag> : status;
+        const label = ANNOUNCEMENT_STATUS_LABEL[status] || status;
+        const color = ANNOUNCEMENT_STATUS_COLOR[status] || 'default';
+        return <Tag color={color}>{label}</Tag>;
       },
     },
     {
@@ -287,14 +285,14 @@ export default function AnnouncementManagementPage() {
       dataIndex: 'publishedAt',
       key: 'publishedAt',
       width: 180,
-      render: (v: string | null) => v ? new Date(v).toLocaleString('zh-CN') : '-',
+      render: (v: string | null) => formatDateTime(v),
     },
     {
       title: '创建时间',
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
-      render: (v: string) => new Date(v).toLocaleString('zh-CN'),
+      render: (v: string) => formatDateTime(v),
     },
     {
       title: '操作',
@@ -463,24 +461,24 @@ export default function AnnouncementManagementPage() {
             <Descriptions column={1} bordered size="small">
               <Descriptions.Item label="标题">{detailItem.title}</Descriptions.Item>
               <Descriptions.Item label="状态">
-                <Tag color={statusConfig[detailItem.status]?.color}>
-                  {statusConfig[detailItem.status]?.label}
+                <Tag color={ANNOUNCEMENT_STATUS_COLOR[detailItem.status] || 'default'}>
+                  {ANNOUNCEMENT_STATUS_LABEL[detailItem.status] || detailItem.status}
                 </Tag>
               </Descriptions.Item>
               {detailItem.publisher && (
                 <Descriptions.Item label="发布人">{detailItem.publisher.name}</Descriptions.Item>
               )}
               <Descriptions.Item label="创建时间">
-                {new Date(detailItem.createdAt).toLocaleString('zh-CN')}
+                {formatDateTime(detailItem.createdAt)}
               </Descriptions.Item>
               {detailItem.publishedAt && (
                 <Descriptions.Item label="发布时间">
-                  {new Date(detailItem.publishedAt).toLocaleString('zh-CN')}
+                  {formatDateTime(detailItem.publishedAt)}
                 </Descriptions.Item>
               )}
               {detailItem.withdrawnAt && (
                 <Descriptions.Item label="撤回时间">
-                  {new Date(detailItem.withdrawnAt).toLocaleString('zh-CN')}
+                  {formatDateTime(detailItem.withdrawnAt)}
                 </Descriptions.Item>
               )}
             </Descriptions>
@@ -530,7 +528,7 @@ export default function AnnouncementManagementPage() {
                         { title: '姓名', dataIndex: 'name', key: 'name' },
                         { title: '账号', dataIndex: 'username', key: 'username' },
                         { title: '部门', dataIndex: ['department', 'name'], key: 'department', render: (v: string) => v || '-' },
-                        { title: '首次阅读时间', dataIndex: 'firstReadAt', key: 'firstReadAt', render: (v: string) => new Date(v).toLocaleString('zh-CN') },
+                        { title: '首次阅读时间', dataIndex: 'firstReadAt', key: 'firstReadAt', render: (v: string) => formatDateTime(v) },
                       ]}
                     />
                   ),

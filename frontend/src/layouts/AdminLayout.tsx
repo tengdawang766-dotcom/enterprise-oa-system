@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu, Dropdown, Avatar, Space, Typography } from 'antd';
 import {
@@ -46,6 +46,13 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const selectedKeys = useMemo(() => {
+    const match = [...(adminMenuItems ?? [])].reverse().find(
+      (item) => item && location.pathname.startsWith((item as { key: string }).key)
+    );
+    return match ? [(match as { key: string }).key] : [];
+  }, [location.pathname]);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -77,7 +84,7 @@ export default function AdminLayout() {
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={[location.pathname]}
+          selectedKeys={selectedKeys}
           items={adminMenuItems}
           onClick={({ key }) => navigate(key)}
         />

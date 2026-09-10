@@ -229,7 +229,7 @@ describe('ApprovalPage', () => {
     render(<MemoryRouter initialEntries={['/app/approvals']}><ApprovalPage /></MemoryRouter>);
     await waitFor(() => {
       expect(screen.getByText('审批管理')).toBeTruthy();
-      expect(screen.getByText('待审批')).toBeTruthy();
+      expect(screen.getAllByText('待审批').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('审批历史')).toBeTruthy();
     });
   });

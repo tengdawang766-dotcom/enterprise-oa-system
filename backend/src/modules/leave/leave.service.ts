@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../infrastructure/database/prisma';
 import { BusinessException } from '../../common/exception/business-exception';
 import { ErrorCode } from '../../common/exception/error-code';
+import { formatDateOnly, formatTimestamp } from '../../common/utils/date-format';
 import {
   CreateLeaveRequest,
   EditLeaveRequest,
@@ -41,12 +42,8 @@ export class LeaveService {
     return {
       id: lr.id,
       leaveType: lr.leaveType,
-      startDate: lr.startDate instanceof Date
-        ? lr.startDate.toISOString().split('T')[0]
-        : lr.startDate,
-      endDate: lr.endDate instanceof Date
-        ? lr.endDate.toISOString().split('T')[0]
-        : lr.endDate,
+      startDate: formatDateOnly(lr.startDate),
+      endDate: formatDateOnly(lr.endDate),
       days: lr.days,
       reason: lr.reason,
       status: lr.status,
@@ -60,8 +57,8 @@ export class LeaveService {
       approver: lr.approver
         ? { id: lr.approver.id, name: lr.approver.name }
         : undefined,
-      createdAt: lr.createdAt?.toISOString?.() ?? lr.createdAt,
-      updatedAt: lr.updatedAt?.toISOString?.() ?? lr.updatedAt,
+      createdAt: formatTimestamp(lr.createdAt),
+      updatedAt: formatTimestamp(lr.updatedAt),
       actionLogs: lr.actionLogs
         ? lr.actionLogs.map((log: any) => ({
             id: log.id,
@@ -70,7 +67,7 @@ export class LeaveService {
             operatorName: log.operatorNameSnapshot,
             comment: log.comment,
             stateVersion: log.stateVersion,
-            createdAt: log.createdAt?.toISOString?.() ?? log.createdAt,
+            createdAt: formatTimestamp(log.createdAt),
           }))
         : undefined,
       finalAction: lr.finalAction
@@ -566,9 +563,6 @@ export class LeaveService {
   // Approval Tasks (pending for current manager)
   // ============================================================
   async findApprovalTasks(approverId: number, query: ApprovalTasksQuery) {
-    // Verify current user is a department manager
-    const isManager = await this.isCurrentManager(approverId);
-
     const where: Prisma.LeaveRequestWhereInput = {
       approverId,
       status: 'PENDING',
@@ -810,14 +804,6 @@ export class LeaveService {
       ...lr,
       finalAction: finalLog,
     });
-  }
-
-  private async isCurrentManager(userId: number): Promise<boolean> {
-    const dept = await prisma.department.findFirst({
-      where: { managerUserId: userId },
-      select: { id: true },
-    });
-    return !!dept;
   }
 }
 

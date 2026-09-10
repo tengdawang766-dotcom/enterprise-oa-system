@@ -6,33 +6,16 @@ import type { ColumnsType } from 'antd/es/table';
 import type { LeaveRequest } from '@/types';
 import { getMyLeaves, cancelLeave, resubmitLeave } from '@/api/leave';
 
+import { formatDate, formatDateTime } from '@/utils/date-format';
+import { LEAVE_STATUS_LABEL, LEAVE_STATUS_COLOR, LEAVE_TYPE_LABEL } from '@/utils/status-labels';
+
 const STATUS_OPTIONS = [
   { value: '', label: '全部状态' },
-  { value: 'PENDING', label: '审批中' },
-  { value: 'APPROVED', label: '已通过' },
-  { value: 'REJECTED', label: '已驳回' },
-  { value: 'CANCELLED', label: '已撤回' },
+  { value: 'PENDING', label: LEAVE_STATUS_LABEL.PENDING },
+  { value: 'APPROVED', label: LEAVE_STATUS_LABEL.APPROVED },
+  { value: 'REJECTED', label: LEAVE_STATUS_LABEL.REJECTED },
+  { value: 'CANCELLED', label: LEAVE_STATUS_LABEL.CANCELLED },
 ];
-
-const STATUS_COLOR: Record<string, string> = {
-  PENDING: 'processing',
-  APPROVED: 'success',
-  REJECTED: 'error',
-  CANCELLED: 'default',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: '审批中',
-  APPROVED: '已通过',
-  REJECTED: '已驳回',
-  CANCELLED: '已撤回',
-};
-
-const LEAVE_TYPE_LABEL: Record<string, string> = {
-  PERSONAL: '事假',
-  SICK: '病假',
-  ANNUAL: '年假',
-};
 
 export default function MyLeaveListPage() {
   const navigate = useNavigate();
@@ -59,7 +42,6 @@ export default function MyLeaveListPage() {
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || '加载请假列表失败';
       setError(msg);
-      message.error(msg);
     } finally {
       setLoading(false);
     }
@@ -148,14 +130,14 @@ export default function MyLeaveListPage() {
       dataIndex: 'startDate',
       key: 'startDate',
       width: 120,
-      render: (val: string) => val?.slice(0, 10),
+      render: (val: string) => formatDate(val),
     },
     {
       title: '结束日期',
       dataIndex: 'endDate',
       key: 'endDate',
       width: 120,
-      render: (val: string) => val?.slice(0, 10),
+      render: (val: string) => formatDate(val),
     },
     {
       title: '天数',
@@ -188,7 +170,7 @@ export default function MyLeaveListPage() {
       key: 'status',
       width: 100,
       render: (val: string) => (
-        <Tag color={STATUS_COLOR[val]}>{STATUS_LABEL[val] || val}</Tag>
+        <Tag color={LEAVE_STATUS_COLOR[val]}>{LEAVE_STATUS_LABEL[val] || val}</Tag>
       ),
     },
     {
@@ -196,7 +178,7 @@ export default function MyLeaveListPage() {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 170,
-      render: (val: string) => val ? new Date(val).toLocaleString('zh-CN') : '-',
+      render: (val: string) => formatDateTime(val),
     },
     {
       title: '操作',

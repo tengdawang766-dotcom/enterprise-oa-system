@@ -2,16 +2,9 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { leaveService } from '../leave/leave.service';
 import { myLeaveQuerySchema } from '../leave/dto/leave.dto';
 import { sendSuccess, sendPaginated } from '../../common/response/api-response';
-import { BusinessException } from '../../common/exception/business-exception';
-import { ErrorCode } from '../../common/exception/error-code';
 
-function parseIdParam(idStr: string): number {
-  const id = Number(idStr);
-  if (!Number.isInteger(id) || id <= 0) {
-    throw BusinessException.badRequest(ErrorCode.VALIDATION_ERROR, 'ID 必须是正整数');
-  }
-  return id;
-}
+
+import { parseIdParam } from '../../common/utils/parse-id';
 
 export const meLeaveRouter = Router();
 

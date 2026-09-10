@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Typography, Button, Result, Descriptions, Tag, Spin, Space } from 'antd';
 import { ArrowLeftOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { openAnnouncement } from '@/api/announcements';
+import { formatDateTime } from '@/utils/date-format';
 
 const { Title } = Typography;
 
@@ -80,7 +81,7 @@ export default function AnnouncementDetailPage() {
 
         <Descriptions column={1} size="small" style={{ marginBottom: 24 }}>
           <Descriptions.Item label="发布时间">
-            {data.publishedAt ? new Date(data.publishedAt).toLocaleString('zh-CN') : '-'}
+            {formatDateTime(data.publishedAt)}
           </Descriptions.Item>
           {data.read && (
             <Descriptions.Item label="阅读状态">
@@ -88,7 +89,7 @@ export default function AnnouncementDetailPage() {
                 <Tag color="green" icon={<CheckCircleOutlined />}>已读</Tag>
                 {data.firstReadAt && (
                   <span style={{ color: '#999' }}>
-                    首次阅读：{new Date(data.firstReadAt).toLocaleString('zh-CN')}
+                    首次阅读：{formatDateTime(data.firstReadAt)}
                   </span>
                 )}
               </Space>
