@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { LeaveAction, LeaveStatus, LeaveType, Prisma } from '@prisma/client';
 import { prisma } from '../../infrastructure/database/prisma';
 import { BusinessException } from '../../common/exception/business-exception';
 import { ErrorCode } from '../../common/exception/error-code';
@@ -10,6 +10,74 @@ import {
   ApprovalTasksQuery,
   ApprovalHistoryQuery,
 } from './dto/leave.dto';
+
+// ---- Types for formatLeaveRequest ----
+
+interface FormattedActionLog {
+  id: number;
+  action: LeaveAction;
+  operatorId: number;
+  operatorName: string;
+  comment: string | null;
+  stateVersion: number;
+  createdAt: string | null;
+}
+
+interface FormattedLeaveRequest {
+  id: number;
+  leaveType: LeaveType;
+  startDate: string | null;
+  endDate: string | null;
+  days: number;
+  reason: string;
+  status: LeaveStatus;
+  stateVersion: number;
+  applicant?: { id: number; name: string };
+  submittedDepartment?: { id: number; name: string };
+  approver?: { id: number; name: string };
+  createdAt: string | null;
+  updatedAt: string | null;
+  actionLogs?: FormattedActionLog[];
+  finalAction?: {
+    action: LeaveAction;
+    operatorName: string;
+    comment: string | null;
+    createdAt: string | Date | null;
+  };
+}
+
+/** Shape accepted by formatLeaveRequest — covers all call-site variants. */
+interface FormattedLeaveRequestInput {
+  id: number;
+  leaveType: LeaveType;
+  startDate: Date;
+  endDate: Date;
+  days: number;
+  reason: string;
+  status: LeaveStatus;
+  stateVersion: number;
+  createdAt: Date;
+  updatedAt: Date;
+  applicant?: { id: number; name: string } | null;
+  submittedDepartment?: { id: number; name: string } | null;
+  approver?: { id: number; name: string } | null;
+  actionLogs?: {
+    id: number;
+    action: LeaveAction;
+    operatorId: number;
+    operatorNameSnapshot: string;
+    comment: string | null;
+    stateVersion: number;
+    createdAt: Date;
+  }[];
+  finalAction?: {
+    action: LeaveAction;
+    operatorNameSnapshot: string;
+    comment: string | null;
+    createdAt: Date;
+  } | null;
+  [key: string]: unknown;  // allow extra fields from partial selects / spreads
+}
 
 export class LeaveService {
   // ============================================================
@@ -38,7 +106,7 @@ export class LeaveService {
   // ============================================================
   // Helper: format leave request for response
   // ============================================================
-  private formatLeaveRequest(lr: any) {
+  private formatLeaveRequest(lr: FormattedLeaveRequestInput): FormattedLeaveRequest {
     return {
       id: lr.id,
       leaveType: lr.leaveType,
@@ -60,7 +128,7 @@ export class LeaveService {
       createdAt: formatTimestamp(lr.createdAt),
       updatedAt: formatTimestamp(lr.updatedAt),
       actionLogs: lr.actionLogs
-        ? lr.actionLogs.map((log: any) => ({
+        ? lr.actionLogs.map((log) => ({
             id: log.id,
             action: log.action,
             operatorId: log.operatorId,

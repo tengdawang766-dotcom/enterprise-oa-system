@@ -1,0 +1,77 @@
+# ============================================================
+# Docker Compose — OA System (MySQL + Backend + Frontend)
+# ============================================================
+# Usage:
+#   cp .env.docker.example .env   # Edit with production secrets
+#   docker compose up -d --build
+#   docker compose logs -f
+# ============================================================
+
+services:
+  # ---- MySQL 5.7 ----
+  mysql:
+    image: mysql:5.7
+    container_name: oa-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${DB_NAME:-oa_system}
+      MYSQL_USER: ${DB_USER:-oa_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - oa-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # MySQL port NOT exposed to host
+
+  # ---- Backend (Express + Prisma) ----
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: oa-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      COOKIE_SECRET: ${COOKIE_SECRET:?Set COOKIE_SECRET in .env}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      DB_HOST: mysql
+      DB_PORT: "3306"
+    networks:
+      - oa-network
+    # Backend port NOT exposed to host (accessed via frontend Nginx proxy)
+
+  # ---- Frontend (React + Nginx) ----
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: oa-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${HOST_PORT:-80}:80"
+    networks:
+      - oa-network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  oa-network:
+    driver: bridge

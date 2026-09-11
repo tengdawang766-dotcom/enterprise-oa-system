@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { config } from './infrastructure/config';
 import { globalExceptionHandler } from './common/exception/global-exception-handler';
+import { prisma } from './infrastructure/database/prisma';
 import { authRouter } from './modules/auth/auth.controller';
 import { meRouter } from './modules/me/me.controller';
 import { meAnnouncementRouter } from './modules/me/me-announcement.controller';
@@ -25,7 +26,7 @@ export function createApp() {
     origin: config.FRONTEND_URL,
     credentials: true,
   }));
-  app.use(express.json());
+  app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser(config.COOKIE_SECRET));
 
   // Routes - auth doesn't need authentication
@@ -105,9 +106,22 @@ export function createApp() {
     meApprovalRouter
   );
 
-  // Health check
+  // Liveness probe - always returns 200 if the process is running
   app.get('/api/v1/health', (_req, res) => {
     res.json({ success: true, data: { status: 'ok' } });
+  });
+
+  // Readiness probe - checks database connectivity
+  app.get('/api/v1/ready', async (_req, res) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      res.json({ success: true, data: { status: 'ready', database: 'connected' } });
+    } catch (err) {
+      res.status(503).json({
+        success: false,
+        error: { code: 'NOT_READY', message: 'Database connection failed' },
+      });
+    }
   });
 
   // Global exception handler

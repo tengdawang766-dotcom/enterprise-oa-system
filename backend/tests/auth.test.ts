@@ -66,6 +66,14 @@ describe('Health Check', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.status).toBe('ok');
   });
+
+  it('GET /api/v1/ready should return 200 when DB is available', async () => {
+    const res = await request(app).get('/api/v1/ready');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.status).toBe('ready');
+    expect(res.body.data.database).toBe('connected');
+  });
 });
 
 describe('Authentication', () => {
@@ -255,6 +263,46 @@ describe('Password Change & JWT Invalidation', () => {
     await prisma.user.update({
       where: { id: userId },
       data: { passwordHash: hash, mustChangePassword: true, tokenVersion: 0 },
+    });
+  });
+});
+
+describe('Disabled Account Session Invalidation', () => {
+  it('should reject 401 ACCOUNT_DISABLED after account is disabled mid-session', async () => {
+    // 1. Login and get cookies
+    const login = await request(app)
+      .post('/api/v1/auth/sessions')
+      .send({ username: TEST_USER.username, password: TEST_USER.password });
+
+    expect(login.status).toBe(200);
+    const cookies = login.headers['set-cookie'];
+
+    // 2. Verify /me works with current cookies
+    const meBefore = await request(app)
+      .get('/api/v1/me')
+      .set('Cookie', cookies);
+
+    expect(meBefore.status).toBe(200);
+    expect(meBefore.body.data.username).toBe(TEST_USER.username);
+
+    // 3. Directly disable the user in DB (status=DISABLED + increment tokenVersion)
+    await prisma.user.update({
+      where: { id: userId },
+      data: { status: 'DISABLED', tokenVersion: { increment: 1 } },
+    });
+
+    // 4. Try /me with OLD cookies -> expect 401 ACCOUNT_DISABLED
+    const meAfter = await request(app)
+      .get('/api/v1/me')
+      .set('Cookie', cookies);
+
+    expect(meAfter.status).toBe(401);
+    expect(meAfter.body.error.code).toBe('ACCOUNT_DISABLED');
+
+    // 5. Restore user for cleanup / other tests
+    await prisma.user.update({
+      where: { id: userId },
+      data: { status: 'ENABLED', tokenVersion: 0 },
     });
   });
 });

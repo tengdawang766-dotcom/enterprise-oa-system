@@ -1048,4 +1048,255 @@ describe('Day 4 - 请假申请与审批', () => {
       expect(res.status).toBe(403);
     });
   });
+
+  // ---------- Concurrent Safety (Day6) ----------
+  describe('并发安全验证', () => {
+    it('两个审批通过请求只能一个成功', async () => {
+      const createRes = await request(app)
+        .post('/api/v1/leave-requests')
+        .set('Cookie', empACookies)
+        .send({
+          leaveType: 'PERSONAL',
+          startDate: '2099-12-15',
+          endDate: '2099-12-16',
+          reason: '并发双审批测试',
+        });
+      const id = createRes.body.data.id;
+      const version = createRes.body.data.stateVersion;
+      createdLeaveIds.push(id);
+
+      // Fire two approve requests truly concurrently
+      const [res1, res2] = await Promise.allSettled([
+        request(app)
+          .post(`/api/v1/leave-requests/${id}/approve`)
+          .set('Cookie', managerACookies)
+          .send({ expectedStateVersion: version, comment: '通过A' }),
+        request(app)
+          .post(`/api/v1/leave-requests/${id}/approve`)
+          .set('Cookie', managerACookies)
+          .send({ expectedStateVersion: version, comment: '通过B' }),
+      ]);
+
+      const r1 = (res1 as PromiseFulfilledResult<any>).value;
+      const r2 = (res2 as PromiseFulfilledResult<any>).value;
+
+      const successCount = [r1, r2].filter((r) => r.status === 200).length;
+      const conflictCount = [r1, r2].filter((r) => r.status === 409).length;
+      expect(successCount).toBe(1);
+      expect(conflictCount).toBe(1);
+
+      // Final status should be APPROVED
+      const detail = await request(app)
+        .get(`/api/v1/me/leave-requests/${id}`)
+        .set('Cookie', empACookies);
+
+      expect(detail.body.data.status).toBe('APPROVED');
+      expect(detail.body.data.stateVersion).toBe(version + 1);
+
+      // Only one APPROVED action log
+      const approvedLogs = detail.body.data.actionLogs.filter(
+        (l: any) => l.action === 'APPROVED',
+      );
+      expect(approvedLogs.length).toBe(1);
+    });
+
+    it('通过和驳回同时请求只能一个成功', async () => {
+      const createRes = await request(app)
+        .post('/api/v1/leave-requests')
+        .set('Cookie', empACookies)
+        .send({
+          leaveType: 'PERSONAL',
+          startDate: '2099-12-20',
+          endDate: '2099-12-21',
+          reason: '通过驳回并发测试',
+        });
+      const id = createRes.body.data.id;
+      const version = createRes.body.data.stateVersion;
+      createdLeaveIds.push(id);
+
+      const [res1, res2] = await Promise.allSettled([
+        request(app)
+          .post(`/api/v1/leave-requests/${id}/approve`)
+          .set('Cookie', managerACookies)
+          .send({ expectedStateVersion: version, comment: '同意' }),
+        request(app)
+          .post(`/api/v1/leave-requests/${id}/reject`)
+          .set('Cookie', managerACookies)
+          .send({ expectedStateVersion: version, reason: '驳回' }),
+      ]);
+
+      const r1 = (res1 as PromiseFulfilledResult<any>).value;
+      const r2 = (res2 as PromiseFulfilledResult<any>).value;
+
+      const successCount = [r1, r2].filter((r) => r.status === 200).length;
+      const conflictCount = [r1, r2].filter((r) => r.status === 409).length;
+      expect(successCount).toBe(1);
+      expect(conflictCount).toBe(1);
+
+      const detail = await request(app)
+        .get(`/api/v1/me/leave-requests/${id}`)
+        .set('Cookie', empACookies);
+
+      expect(['APPROVED', 'REJECTED']).toContain(detail.body.data.status);
+
+      // Exactly one action log (APPROVED or REJECTED, not both)
+      const stateLogs = detail.body.data.actionLogs.filter((l: any) =>
+        ['APPROVED', 'REJECTED'].includes(l.action),
+      );
+      expect(stateLogs.length).toBe(1);
+    });
+
+    it('撤回和审批同时请求只能一个成功', async () => {
+      const createRes = await request(app)
+        .post('/api/v1/leave-requests')
+        .set('Cookie', empACookies)
+        .send({
+          leaveType: 'PERSONAL',
+          startDate: '2099-12-25',
+          endDate: '2099-12-26',
+          reason: '撤回审批并发测试',
+        });
+      const id = createRes.body.data.id;
+      const version = createRes.body.data.stateVersion;
+      createdLeaveIds.push(id);
+
+      const [res1, res2] = await Promise.allSettled([
+        request(app)
+          .post(`/api/v1/leave-requests/${id}/cancel`)
+          .set('Cookie', empACookies)
+          .send({ expectedStateVersion: version }),
+        request(app)
+          .post(`/api/v1/leave-requests/${id}/approve`)
+          .set('Cookie', managerACookies)
+          .send({ expectedStateVersion: version }),
+      ]);
+
+      const r1 = (res1 as PromiseFulfilledResult<any>).value;
+      const r2 = (res2 as PromiseFulfilledResult<any>).value;
+
+      const successCount = [r1, r2].filter((r) => r.status === 200).length;
+      const conflictCount = [r1, r2].filter((r) => r.status === 409).length;
+      expect(successCount).toBe(1);
+      expect(conflictCount).toBe(1);
+
+      const detail = await request(app)
+        .get(`/api/v1/me/leave-requests/${id}`)
+        .set('Cookie', empACookies);
+
+      expect(['CANCELLED', 'APPROVED']).toContain(detail.body.data.status);
+
+      // Exactly one action log for the final state transition
+      const stateLogs = detail.body.data.actionLogs.filter((l: any) =>
+        ['CANCELLED', 'APPROVED'].includes(l.action),
+      );
+      expect(stateLogs.length).toBe(1);
+    });
+
+    it('两个重新提交请求只能一个成功', async () => {
+      // Create a leave, then cancel it
+      const createRes = await request(app)
+        .post('/api/v1/leave-requests')
+        .set('Cookie', empACookies)
+        .send({
+          leaveType: 'PERSONAL',
+          startDate: '2099-12-28',
+          endDate: '2099-12-29',
+          reason: '双重新提交并发测试',
+        });
+      const id = createRes.body.data.id;
+      const version = createRes.body.data.stateVersion;
+      createdLeaveIds.push(id);
+
+      // Cancel it first
+      const cancelRes = await request(app)
+        .post(`/api/v1/leave-requests/${id}/cancel`)
+        .set('Cookie', empACookies)
+        .send({ expectedStateVersion: version });
+
+      expect(cancelRes.status).toBe(200);
+      const cancelledVersion = cancelRes.body.data.stateVersion;
+
+      // Fire two resubmit requests truly concurrently
+      const [res1, res2] = await Promise.allSettled([
+        request(app)
+          .post(`/api/v1/leave-requests/${id}/resubmit`)
+          .set('Cookie', empACookies)
+          .send({ expectedStateVersion: cancelledVersion }),
+        request(app)
+          .post(`/api/v1/leave-requests/${id}/resubmit`)
+          .set('Cookie', empACookies)
+          .send({ expectedStateVersion: cancelledVersion }),
+      ]);
+
+      const r1 = (res1 as PromiseFulfilledResult<any>).value;
+      const r2 = (res2 as PromiseFulfilledResult<any>).value;
+
+      const successCount = [r1, r2].filter((r) => r.status === 200).length;
+      const conflictCount = [r1, r2].filter((r) => r.status === 409).length;
+      expect(successCount).toBe(1);
+      expect(conflictCount).toBe(1);
+
+      const detail = await request(app)
+        .get(`/api/v1/me/leave-requests/${id}`)
+        .set('Cookie', empACookies);
+
+      expect(detail.body.data.status).toBe('PENDING');
+
+      // Only one RESUBMITTED action log
+      const resubmittedLogs = detail.body.data.actionLogs.filter(
+        (l: any) => l.action === 'RESUBMITTED',
+      );
+      expect(resubmittedLogs.length).toBe(1);
+    });
+
+    it('事务失败不留下孤立日志', async () => {
+      // Use the leave from the previous test (already PENDING after one resubmit succeeded)
+      // Fire a concurrent approve+reject to trigger a conflict
+      const detail = await request(app)
+        .get('/api/v1/me/leave-requests')
+        .set('Cookie', empACookies);
+
+      // Find a PENDING leave from our test data
+      const pendingLeave = detail.body.data.items.find(
+        (item: any) => item.status === 'PENDING',
+      );
+      expect(pendingLeave).toBeTruthy();
+
+      const id = pendingLeave.id;
+      const version = pendingLeave.stateVersion;
+
+      // Count logs before
+      const beforeDetail = await request(app)
+        .get(`/api/v1/me/leave-requests/${id}`)
+        .set('Cookie', empACookies);
+      const logsBefore = beforeDetail.body.data.actionLogs.length;
+
+      // Fire conflicting operations
+      const [res1, res2] = await Promise.allSettled([
+        request(app)
+          .post(`/api/v1/leave-requests/${id}/approve`)
+          .set('Cookie', managerACookies)
+          .send({ expectedStateVersion: version }),
+        request(app)
+          .post(`/api/v1/leave-requests/${id}/reject`)
+          .set('Cookie', managerACookies)
+          .send({ expectedStateVersion: version, reason: '冲突' }),
+      ]);
+
+      const r1 = (res1 as PromiseFulfilledResult<any>).value;
+      const r2 = (res2 as PromiseFulfilledResult<any>).value;
+
+      // Exactly one should succeed
+      const successCount = [r1, r2].filter((r) => r.status === 200).length;
+      expect(successCount).toBe(1);
+
+      // Count logs after — should only have ONE more than before (not two)
+      const afterDetail = await request(app)
+        .get(`/api/v1/me/leave-requests/${id}`)
+        .set('Cookie', empACookies);
+      const logsAfter = afterDetail.body.data.actionLogs.length;
+
+      expect(logsAfter).toBe(logsBefore + 1);
+    });
+  });
 });
