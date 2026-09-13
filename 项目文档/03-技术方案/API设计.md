@@ -3801,3 +3801,19 @@ leave_action_logs
 ```
 
 至此，这份 API 文档可以作为企业 OA V1.0 后端 Controller、Service、DTO、Validation、Authorization、Transaction 和 Repository 查询设计的直接输入。
+
+## 内部知识分享 API 设计（计划新增）
+
+状态：开发中；实现后以实际路由、DTO 和测试结果复核。
+
+### 状态流转
+
+```text
+DRAFT --publish--> PUBLISHED --withdraw--> WITHDRAWN
+```
+
+DRAFT 与 PUBLISHED 可由作者修改；WITHDRAWN 为第一版终态。发布和撤回使用 `id + authorId + expectedStatus` 条件更新，受影响行数为 0 时区分不存在、归属错误和状态冲突。
+
+### 接口契约
+
+接口清单与 `02-产品设计/API输入文档.md` 一致。分页响应沿用 `{items,pagination}`；详情返回分类和作者摘要；创建忽略客户端作者字段。错误码计划增加 `KNOWLEDGE_ARTICLE_NOT_FOUND`、`KNOWLEDGE_ARTICLE_FORBIDDEN`、`KNOWLEDGE_ARTICLE_STATE_NOT_ALLOWED`、`KNOWLEDGE_CATEGORY_NOT_AVAILABLE`。

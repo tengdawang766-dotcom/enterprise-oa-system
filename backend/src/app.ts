@@ -15,6 +15,7 @@ import { directoryRouter } from './modules/directory/directory.controller';
 import { leaveRouter } from './modules/leave/leave.controller';
 import { meLeaveRouter } from './modules/me/me-leave.controller';
 import { meApprovalRouter } from './modules/me/me-approval.controller';
+import { knowledgeRouter } from './modules/knowledge/knowledge.controller';
 import { authenticationMiddleware, forcePasswordChangeMiddleware, requireRole } from './common/auth/authentication';
 
 export function createApp() {
@@ -104,6 +105,15 @@ export function createApp() {
     forcePasswordChangeMiddleware,
     requireRole('EMPLOYEE'),
     meApprovalRouter
+  );
+
+  // Knowledge sharing — EMPLOYEE only (department managers use EMPLOYEE role)
+  app.use(
+    '/api/v1/knowledge',
+    authenticationMiddleware,
+    forcePasswordChangeMiddleware,
+    requireRole('EMPLOYEE'),
+    knowledgeRouter
   );
 
   // Liveness probe - always returns 200 if the process is running

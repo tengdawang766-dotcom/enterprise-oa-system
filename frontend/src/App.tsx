@@ -27,6 +27,10 @@ const LeaveFormPage = lazy(() => import('@/pages/LeaveFormPage'));
 const LeaveDetailPage = lazy(() => import('@/pages/LeaveDetailPage'));
 const ApprovalPage = lazy(() => import('@/pages/ApprovalPage'));
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
+const KnowledgeListPage = lazy(() => import('@/pages/KnowledgeListPage'));
+const KnowledgeDetailPage = lazy(() => import('@/pages/KnowledgeDetailPage'));
+const KnowledgeEditorPage = lazy(() => import('@/pages/KnowledgeEditorPage'));
+const MyKnowledgePage = lazy(() => import('@/pages/MyKnowledgePage'));
 
 function PageLoading() {
   return (
@@ -79,6 +83,11 @@ export default function App() {
             <Route path="leave/:id" element={<Suspense fallback={<PageLoading />}><LeaveDetailPage /></Suspense>} />
             <Route path="approvals" element={<Suspense fallback={<PageLoading />}><ApprovalPage /></Suspense>} />
             <Route path="approvals/:id" element={<Suspense fallback={<PageLoading />}><LeaveDetailPage /></Suspense>} />
+            <Route path="knowledge" element={<Suspense fallback={<PageLoading />}><KnowledgeListPage /></Suspense>} />
+            <Route path="knowledge/articles/:id" element={<Suspense fallback={<PageLoading />}><KnowledgeDetailPage /></Suspense>} />
+            <Route path="knowledge/editor" element={<Suspense fallback={<PageLoading />}><KnowledgeEditorPage /></Suspense>} />
+            <Route path="knowledge/editor/:id" element={<Suspense fallback={<PageLoading />}><KnowledgeEditorPage /></Suspense>} />
+            <Route path="knowledge/mine" element={<Suspense fallback={<PageLoading />}><MyKnowledgePage /></Suspense>} />
           </Route>
 
           {/* Admin routes */}

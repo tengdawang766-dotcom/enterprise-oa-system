@@ -323,6 +323,25 @@ async function main() {
   console.log('[leave] REJECTED — wangwu sick leave (id:', leave3.id, ')');
 
   // ---------------------------------------------------------------------------
+  // 7. Knowledge Categories (preset, idempotent)
+  // ---------------------------------------------------------------------------
+  const categories = [
+    { name: '操作指南', description: '系统操作和工具使用指南', sortOrder: 1 },
+    { name: '技术经验', description: '技术方案和开发经验分享', sortOrder: 2 },
+    { name: '工作复盘', description: '项目和工作总结与反思', sortOrder: 3 },
+    { name: '其他', description: '其他内部知识分享', sortOrder: 4 },
+  ];
+
+  for (const cat of categories) {
+    const created = await prisma.knowledgeCategory.upsert({
+      where: { name: cat.name },
+      update: { description: cat.description, sortOrder: cat.sortOrder, isActive: true },
+      create: cat,
+    });
+    console.log('[knowledge_category]', created.name, '— id:', created.id);
+  }
+
+  // ---------------------------------------------------------------------------
   console.log('\n=== Demo seeding completed successfully ===');
   console.log('Credentials (DEMO ONLY — change before any real use):');
   console.log('  admin    / admin123');

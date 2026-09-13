@@ -2552,3 +2552,20 @@ PENDING       → REJECTED
 ------
 
 **最终结论：企业 OA 协同办公系统 V1.0 的核心业务规则已经具备进入 RESTful API 设计阶段的条件。**
+
+## 内部知识分享 API 输入（计划新增）
+
+状态：已完成（Day 8）。统一前缀 `/api/v1/knowledge`，仅 `ENABLED + EMPLOYEE + 已完成强制改密` 可访问。实际实现 8 个接口，DTO 使用 Zod 校验。
+
+| 方法 | 路径 | 用途 |
+|---|---|---|
+| GET | `/knowledge/categories` | 获取启用的预置分类 |
+| GET | `/knowledge/articles` | 已发布文章列表，支持 keyword/categoryId/page/pageSize |
+| GET | `/knowledge/articles/:id` | 文章详情，执行状态和可见性校验 |
+| POST | `/knowledge/articles` | 创建本人草稿 |
+| PATCH | `/knowledge/articles/:id` | 修改本人草稿或已发布文章 |
+| POST | `/knowledge/articles/:id/publish` | 发布本人草稿 |
+| POST | `/knowledge/articles/:id/withdraw` | 撤回本人已发布文章 |
+| GET | `/knowledge/me/articles` | 本人文章列表，支持 status/keyword/categoryId/page/pageSize |
+
+服务端从认证上下文取得作者 ID，不接受客户端指定 authorId。所有 ID 必须为正整数；非法输入返回统一校验错误；不存在或无权查看的非公开文章统一返回 404，避免泄露资源存在性。

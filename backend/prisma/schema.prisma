@@ -8,28 +8,29 @@ datasource db {
 }
 
 model User {
-  id               Int      @id @default(autoincrement())
-  username         String   @unique @db.VarChar(50)
-  passwordHash     String   @map("password_hash") @db.VarChar(255)
-  name             String   @db.VarChar(50)
-  role             Role
-  departmentId     Int?     @map("department_id")
-  jobTitle         String?  @map("job_title") @db.VarChar(100)
-  workEmail        String?  @map("work_email") @db.VarChar(100)
-  phone            String?  @db.VarChar(30)
-  status           UserStatus @default(ENABLED)
-  mustChangePassword Boolean @default(true) @map("must_change_password")
-  tokenVersion     Int      @default(0) @map("token_version")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id                 Int        @id @default(autoincrement())
+  username           String     @unique @db.VarChar(50)
+  passwordHash       String     @map("password_hash") @db.VarChar(255)
+  name               String     @db.VarChar(50)
+  role               Role
+  departmentId       Int?       @map("department_id")
+  jobTitle           String?    @map("job_title") @db.VarChar(100)
+  workEmail          String?    @map("work_email") @db.VarChar(100)
+  phone              String?    @db.VarChar(30)
+  status             UserStatus @default(ENABLED)
+  mustChangePassword Boolean    @default(true) @map("must_change_password")
+  tokenVersion       Int        @default(0) @map("token_version")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
 
-  department       Department? @relation("UserDepartment", fields: [departmentId], references: [id])
-  managedDepartment Department? @relation("DepartmentManager")
-  announcements    Announcement[]
-  reads            AnnouncementRead[]
-  leaveRequests    LeaveRequest[]   @relation("Applicant")
-  approvalTasks    LeaveRequest[]   @relation("Approver")
-  actionLogs       LeaveActionLog[]
+  department        Department?        @relation("UserDepartment", fields: [departmentId], references: [id])
+  managedDepartment Department?        @relation("DepartmentManager")
+  announcements     Announcement[]
+  reads             AnnouncementRead[]
+  leaveRequests     LeaveRequest[]     @relation("Applicant")
+  approvalTasks     LeaveRequest[]     @relation("Approver")
+  actionLogs        LeaveActionLog[]
+  knowledgeArticles KnowledgeArticle[]
 
   @@map("users")
 }
@@ -45,32 +46,32 @@ enum UserStatus {
 }
 
 model Department {
-  id           Int      @id @default(autoincrement())
-  name         String   @unique @db.VarChar(100)
-  managerUserId Int?    @unique @map("manager_user_id")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id            Int      @id @default(autoincrement())
+  name          String   @unique @db.VarChar(100)
+  managerUserId Int?     @unique @map("manager_user_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  users        User[]   @relation("UserDepartment")
-  manager      User?    @relation("DepartmentManager", fields: [managerUserId], references: [id])
+  users         User[]         @relation("UserDepartment")
+  manager       User?          @relation("DepartmentManager", fields: [managerUserId], references: [id])
   leaveRequests LeaveRequest[]
 
   @@map("departments")
 }
 
 model Announcement {
-  id          Int              @id @default(autoincrement())
-  title       String           @db.VarChar(200)
-  content     String           @db.Text
+  id          Int                @id @default(autoincrement())
+  title       String             @db.VarChar(200)
+  content     String             @db.Text
   status      AnnouncementStatus @default(DRAFT)
-  publisherId Int              @map("publisher_id")
-  publishedAt DateTime?        @map("published_at")
-  withdrawnAt DateTime?        @map("withdrawn_at")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
+  publisherId Int                @map("publisher_id")
+  publishedAt DateTime?          @map("published_at")
+  withdrawnAt DateTime?          @map("withdrawn_at")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
 
-  publisher   User             @relation(fields: [publisherId], references: [id])
-  reads       AnnouncementRead[]
+  publisher User               @relation(fields: [publisherId], references: [id])
+  reads     AnnouncementRead[]
 
   @@map("announcements")
 }
@@ -87,35 +88,35 @@ model AnnouncementRead {
   userId         Int      @map("user_id")
   firstReadAt    DateTime @default(now()) @map("first_read_at")
 
-  announcement   Announcement @relation(fields: [announcementId], references: [id])
-  user           User         @relation(fields: [userId], references: [id])
+  announcement Announcement @relation(fields: [announcementId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
 
   @@unique([announcementId, userId])
   @@map("announcement_reads")
 }
 
 model LeaveRequest {
-  id                    Int           @id @default(autoincrement())
-  applicantId           Int           @map("applicant_id")
-  applicantNameSnapshot String        @map("applicant_name_snapshot") @db.VarChar(50)
-  submittedDepartmentId Int           @map("submitted_department_id")
-  departmentNameSnapshot String       @map("department_name_snapshot") @db.VarChar(100)
-  approverId            Int           @map("approver_id")
-  approverNameSnapshot  String        @map("approver_name_snapshot") @db.VarChar(50)
-  leaveType             LeaveType
-  startDate             DateTime      @map("start_date") @db.Date
-  endDate               DateTime      @map("end_date") @db.Date
-  days                  Int
-  reason                String        @db.VarChar(500)
-  status                LeaveStatus   @default(PENDING)
-  stateVersion          Int           @default(0) @map("state_version")
-  createdAt             DateTime      @default(now()) @map("created_at")
-  updatedAt             DateTime      @updatedAt @map("updated_at")
+  id                     Int         @id @default(autoincrement())
+  applicantId            Int         @map("applicant_id")
+  applicantNameSnapshot  String      @map("applicant_name_snapshot") @db.VarChar(50)
+  submittedDepartmentId  Int         @map("submitted_department_id")
+  departmentNameSnapshot String      @map("department_name_snapshot") @db.VarChar(100)
+  approverId             Int         @map("approver_id")
+  approverNameSnapshot   String      @map("approver_name_snapshot") @db.VarChar(50)
+  leaveType              LeaveType
+  startDate              DateTime    @map("start_date") @db.Date
+  endDate                DateTime    @map("end_date") @db.Date
+  days                   Int
+  reason                 String      @db.VarChar(500)
+  status                 LeaveStatus @default(PENDING)
+  stateVersion           Int         @default(0) @map("state_version")
+  createdAt              DateTime    @default(now()) @map("created_at")
+  updatedAt              DateTime    @updatedAt @map("updated_at")
 
-  applicant             User          @relation("Applicant", fields: [applicantId], references: [id])
-  approver              User          @relation("Approver", fields: [approverId], references: [id])
-  submittedDepartment   Department    @relation(fields: [submittedDepartmentId], references: [id])
-  actionLogs            LeaveActionLog[]
+  applicant           User             @relation("Applicant", fields: [applicantId], references: [id])
+  approver            User             @relation("Approver", fields: [approverId], references: [id])
+  submittedDepartment Department       @relation(fields: [submittedDepartmentId], references: [id])
+  actionLogs          LeaveActionLog[]
 
   @@map("leave_requests")
 }
@@ -134,17 +135,17 @@ enum LeaveStatus {
 }
 
 model LeaveActionLog {
-  id                 Int          @id @default(autoincrement())
-  leaveRequestId     Int          @map("leave_request_id")
-  action             LeaveAction
-  operatorId         Int          @map("operator_id")
-  operatorNameSnapshot String     @map("operator_name_snapshot") @db.VarChar(50)
-  comment            String?      @db.VarChar(500)
-  stateVersion       Int          @map("state_version")
-  createdAt          DateTime     @default(now()) @map("created_at")
+  id                   Int         @id @default(autoincrement())
+  leaveRequestId       Int         @map("leave_request_id")
+  action               LeaveAction
+  operatorId           Int         @map("operator_id")
+  operatorNameSnapshot String      @map("operator_name_snapshot") @db.VarChar(50)
+  comment              String?     @db.VarChar(500)
+  stateVersion         Int         @map("state_version")
+  createdAt            DateTime    @default(now()) @map("created_at")
 
-  leaveRequest       LeaveRequest @relation(fields: [leaveRequestId], references: [id])
-  operator           User         @relation(fields: [operatorId], references: [id])
+  leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id])
+  operator     User         @relation(fields: [operatorId], references: [id])
 
   @@unique([leaveRequestId, stateVersion])
   @@map("leave_action_logs")
@@ -157,4 +158,50 @@ enum LeaveAction {
   CANCELLED
   EDITED
   RESUBMITTED
+}
+
+// ============================================================
+// Knowledge Sharing
+// ============================================================
+
+model KnowledgeCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  description String?  @db.VarChar(200)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  articles KnowledgeArticle[]
+
+  @@map("knowledge_categories")
+}
+
+model KnowledgeArticle {
+  id          Int           @id @default(autoincrement())
+  title       String        @db.VarChar(200)
+  summary     String?       @db.VarChar(500)
+  content     String        @db.Text
+  status      ArticleStatus @default(DRAFT)
+  categoryId  Int           @map("category_id")
+  authorId    Int           @map("author_id")
+  publishedAt DateTime?     @map("published_at")
+  withdrawnAt DateTime?     @map("withdrawn_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  category KnowledgeCategory @relation(fields: [categoryId], references: [id])
+  author   User              @relation(fields: [authorId], references: [id])
+
+  @@index([status, publishedAt])
+  @@index([categoryId, status])
+  @@index([authorId, status])
+  @@map("knowledge_articles")
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  WITHDRAWN
 }

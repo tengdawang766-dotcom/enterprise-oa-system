@@ -11,6 +11,7 @@ import {
   MenuUnfoldOutlined,
   FileTextOutlined,
   AuditOutlined,
+  ReadOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '@/stores/auth';
 import type { MenuProps } from 'antd';
@@ -49,6 +50,12 @@ function getEmployeeMenuItems(isManager: boolean): MenuProps['items'] {
     key: '/app/directory',
     icon: <PhoneOutlined />,
     label: '通讯录',
+  });
+
+  items!.push({
+    key: '/app/knowledge',
+    icon: <ReadOutlined />,
+    label: '知识分享',
   });
 
   return items;
@@ -90,6 +97,7 @@ export default function EmployeeLayout() {
     if (path.startsWith('/app/leave')) return ['/app/leave'];
     if (path.startsWith('/app/approvals')) return ['/app/approvals'];
     if (path.startsWith('/app/directory')) return ['/app/directory'];
+    if (path.startsWith('/app/knowledge')) return ['/app/knowledge'];
     return ['/app/dashboard'];
   }, [location.pathname]);
 

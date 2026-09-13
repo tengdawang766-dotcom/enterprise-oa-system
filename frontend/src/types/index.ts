@@ -163,3 +163,28 @@ export interface LeaveDetail extends LeaveRequest {
     createdAt: string;
   };
 }
+
+// ---- Knowledge ----
+
+export interface KnowledgeCategory {
+  id: number;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+}
+
+export interface KnowledgeArticle {
+  id: number;
+  title: string;
+  summary: string | null;
+  content?: string;
+  status: 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN';
+  categoryId: number;
+  authorId: number;
+  publishedAt: string | null;
+  withdrawnAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  category?: { id: number; name: string };
+  author?: { id: number; name: string };
+}

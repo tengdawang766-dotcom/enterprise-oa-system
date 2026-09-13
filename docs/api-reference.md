@@ -137,3 +137,19 @@ Requires authentication + any role (ADMIN or EMPLOYEE).
 | GET | `/directory` | Any | List directory entries (paginated, filterable) |
 | GET | `/directory/departments` | Any | List departments for filter dropdown |
 | GET | `/directory/:id` | Any | Get directory entry detail |
+
+
+## Knowledge Sharing (planned)
+
+Status: planned; paths are approved before implementation.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/knowledge/categories` | Active predefined categories |
+| GET | `/knowledge/articles` | Published article list |
+| GET | `/knowledge/articles/:id` | Visible article detail |
+| POST | `/knowledge/articles` | Create own draft |
+| PATCH | `/knowledge/articles/:id` | Update own draft/published article |
+| POST | `/knowledge/articles/:id/publish` | Publish own draft |
+| POST | `/knowledge/articles/:id/withdraw` | Withdraw own published article |
+| GET | `/knowledge/me/articles` | Current employee's articles |

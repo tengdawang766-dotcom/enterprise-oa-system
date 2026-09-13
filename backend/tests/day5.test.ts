@@ -629,9 +629,17 @@ describe('工作概览 API', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    // After serial cleanup of prior tests, only our 2 PUBLISHED announcements exist
-    // empA read ann2, so only ann1 is unread
-    expect(res.body.data.unreadAnnouncementCount).toBe(1);
+    // Unread count includes our 2 PUBLISHED announcements (empA read ann2) plus
+    // any seed-published announcements that empA hasn't read
+    const seedPublishedUnread = await prisma.announcement.count({
+      where: {
+        status: 'PUBLISHED',
+        id: { notIn: createdAnnouncementIds },
+        reads: { none: { userId: empAId } },
+      },
+    });
+    const expectedUnread = 1 + seedPublishedUnread; // ann1 unread + seed unread
+    expect(res.body.data.unreadAnnouncementCount).toBe(expectedUnread);
 
     const testAnns = filterTestAnnouncements(res.body.data.recentAnnouncements);
     const ann1 = testAnns.find((a: any) => a.id === createdAnnouncementIds[0]);
