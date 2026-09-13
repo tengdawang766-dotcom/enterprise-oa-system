@@ -558,6 +558,6 @@ grep FRONTEND_URL backend/.env
 ```
 
 
-## 9. 内部知识分享部署影响（计划新增）
+## 9. 内部知识分享部署影响（已完成）
 
 状态：已完成（Day 8）。部署拓扑、端口和环境变量不变；发布新版本前需应用 Migration `20260913072642_add_knowledge_sharing`，并执行 seed 幂等写入预置分类（操作指南、技术经验、工作复盘、其他）。正文按纯文本返回，前端使用 `white-space: pre-wrap` 渲染，未使用 `dangerouslySetInnerHTML`。

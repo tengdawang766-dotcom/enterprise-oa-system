@@ -3802,9 +3802,9 @@ leave_action_logs
 
 至此，这份 API 文档可以作为企业 OA V1.0 后端 Controller、Service、DTO、Validation、Authorization、Transaction 和 Repository 查询设计的直接输入。
 
-## 内部知识分享 API 设计（计划新增）
+## 内部知识分享 API 设计（已完成）
 
-状态：开发中；实现后以实际路由、DTO 和测试结果复核。
+状态：已完成（Day 8）。Migration: `20260913072642_add_knowledge_sharing`。实际实现 8 个接口，DTO 使用 Zod 校验，后端 35 项集成测试全部通过。
 
 ### 状态流转
 
@@ -3812,8 +3812,21 @@ leave_action_logs
 DRAFT --publish--> PUBLISHED --withdraw--> WITHDRAWN
 ```
 
-DRAFT 与 PUBLISHED 可由作者修改；WITHDRAWN 为第一版终态。发布和撤回使用 `id + authorId + expectedStatus` 条件更新，受影响行数为 0 时区分不存在、归属错误和状态冲突。
+DRAFT 与 PUBLISHED 可由作者修改；WITHDRAWN 为第一版终态。发布使用 `id + authorId + status=DRAFT` 条件更新，撤回使用 `id + authorId + status=PUBLISHED` 条件更新，受影响行数为 0 时区分不存在、归属错误和状态冲突。
 
-### 接口契约
+### 接口清单
 
-接口清单与 `02-产品设计/API输入文档.md` 一致。分页响应沿用 `{items,pagination}`；详情返回分类和作者摘要；创建忽略客户端作者字段。错误码计划增加 `KNOWLEDGE_ARTICLE_NOT_FOUND`、`KNOWLEDGE_ARTICLE_FORBIDDEN`、`KNOWLEDGE_ARTICLE_STATE_NOT_ALLOWED`、`KNOWLEDGE_CATEGORY_NOT_AVAILABLE`。
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/v1/knowledge/categories` | 启用分类列表 |
+| GET | `/api/v1/knowledge/articles` | 已发布文章列表（keyword, categoryId, page, pageSize） |
+| GET | `/api/v1/knowledge/articles/:id` | 文章详情（含可见性校验） |
+| POST | `/api/v1/knowledge/articles` | 创建草稿 |
+| PATCH | `/api/v1/knowledge/articles/:id` | 修改文章 |
+| POST | `/api/v1/knowledge/articles/:id/publish` | 发布草稿 |
+| POST | `/api/v1/knowledge/articles/:id/withdraw` | 撤回已发布 |
+| GET | `/api/v1/knowledge/me/articles` | 我的文章（额外支持 status 筛选） |
+
+### 错误码
+
+`KNOWLEDGE_ARTICLE_NOT_FOUND`、`KNOWLEDGE_ARTICLE_FORBIDDEN`、`KNOWLEDGE_ARTICLE_STATE_NOT_ALLOWED`、`KNOWLEDGE_CATEGORY_NOT_AVAILABLE`。

@@ -2553,7 +2553,7 @@ PENDING       → REJECTED
 
 **最终结论：企业 OA 协同办公系统 V1.0 的核心业务规则已经具备进入 RESTful API 设计阶段的条件。**
 
-## 内部知识分享 API 输入（计划新增）
+## 内部知识分享 API 输入（已完成）
 
 状态：已完成（Day 8）。统一前缀 `/api/v1/knowledge`，仅 `ENABLED + EMPLOYEE + 已完成强制改密` 可访问。实际实现 8 个接口，DTO 使用 Zod 校验。
 

@@ -139,9 +139,9 @@ Requires authentication + any role (ADMIN or EMPLOYEE).
 | GET | `/directory/:id` | Any | Get directory entry detail |
 
 
-## Knowledge Sharing (planned)
+## Knowledge Sharing (completed)
 
-Status: planned; paths are approved before implementation.
+Status: completed (Day 8). Migration: `20260913072642_add_knowledge_sharing`. 8 endpoints implemented, 35 backend tests passed.
 
 | Method | Path | Description |
 |---|---|---|
