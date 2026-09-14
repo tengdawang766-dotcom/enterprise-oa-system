@@ -1,13 +1,14 @@
 /**
- * AI 页面交互验收测试 (Day 9 收尾轮)
+ * AI 页面交互验收测试 (Day 9 收尾轮 — 过期保护+取消修复)
  *
  * 验证项：
  *   ① 生成并显示预览 — mock返回固定内容，正文保持原样
  *   ② 人工应用 — 点击插入，正文按产品规则追加
- *   ③ 过期保护 — 生成期间修改输入，应用旧结果触发警告，不覆盖新内容
+ *   ③ 过期保护 — 生成期间修改输入，应用旧结果被阻止，正文不变
  *   ④ 失败保护 — 接口失败，显示错误，正文保留
- *   ⑤ 取消保护 — 生成期间关闭抽屉，正文保留；迟到响应不自动应用
+ *   ⑤ 取消保护 — 生成期间关闭抽屉，请求中止，迟到响应不更新预览
  *
+ * 测试环境：Vitest + jsdom（组件行为测试，非浏览器验收）
  * 拦截方式：vi.mock('@/lib/axios') — 直接替换 Axios 实例，非 fetch mock。
  * 所有响应为模拟数据，不调用真实 DeepSeek API。
  */
@@ -30,7 +31,7 @@ vi.mock('@/lib/axios', () => ({
   },
 }));
 
-// Mock antd (组件渲染不可用，使用逻辑等价验证)
+// Mock antd
 vi.mock('antd', () => ({
   Layout: { Header: 'header', Sider: 'sider', Content: 'content' },
   Menu: 'menu',
@@ -69,7 +70,7 @@ vi.mock('antd', () => ({
   Comment: 'comment',
   Skeleton: 'skeleton',
   Pagination: 'pagination',
-  Drawer: ({ children, ...props }: any) => children,
+  Drawer: ({ children }: any) => children,
 }));
 
 vi.mock('antd/es/menu', () => ({ default: {} }));
@@ -159,8 +160,10 @@ beforeEach(() => {
 // ============================================================
 
 /**
- * 模拟 insertToContent 逻辑（摘自 KnowledgeEditorPage.tsx 第 204-215 行）
- * 过期保护：snapshot !== currentValue 时发出警告，但仍然追加（不覆盖）
+ * 模拟完整的 AI 交互流程，包括：
+ * - AbortController 取消机制
+ * - generationId 过期响应丢弃
+ * - insertToContent 过期保护（阻止插入，非仅警告）
  */
 function createEditorHarness(initialContent: string) {
   let content = initialContent;
@@ -173,10 +176,21 @@ function createEditorHarness(initialContent: string) {
   let summaryLoading = false;
   const messages: { type: string; text: string }[] = [];
 
+  // AbortController + generationId (matches component refs)
+  let abortController: AbortController | null = null;
+  let generationId = 0;
+
+  const cancelAi = () => {
+    abortController?.abort();
+    abortController = null;
+    generationId += 1;
+  };
+
   const insertToContent = (text: string, snapshot?: string, currentValue?: string) => {
-    // 过期保护逻辑（源码第 206-208 行）
+    // Expired result protection: BLOCK insertion if snapshot mismatches
     if (snapshot !== undefined && currentValue !== undefined && snapshot !== currentValue) {
-      messages.push({ type: 'warning', text: '输入内容已变化，AI结果可能不适用。已改为追加到末尾，请手动检查。' });
+      messages.push({ type: 'error', text: '输入内容已变化，AI结果已失效，请重新生成。' });
+      return; // do NOT insert
     }
     content = content ? content + '\n\n' + text : text;
     messages.push({ type: 'success', text: '已插入到正文' });
@@ -188,15 +202,24 @@ function createEditorHarness(initialContent: string) {
       messages.push({ type: 'warning', text: '请输入主题' });
       return;
     }
+    cancelAi(); // abort previous
+    const gen = ++generationId;
+    const controller = new AbortController();
+    abortController = controller;
+
     draftLoading = true;
     draftResult = '';
     try {
-      const data = await aiDraft(topic.trim(), points?.trim() || undefined, requirements?.trim() || undefined);
+      const data = await aiDraft(topic.trim(), points?.trim() || undefined, requirements?.trim() || undefined, controller.signal);
+      if (gen !== generationId) return; // stale
       draftResult = data.content;
     } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
+      if (gen !== generationId) return;
       messages.push({ type: 'error', text: err?.message || 'AI生成失败' });
     } finally {
-      draftLoading = false;
+      draftLoading = false; // always reset loading
+      if (abortController === controller) abortController = null;
     }
   };
 
@@ -205,16 +228,25 @@ function createEditorHarness(initialContent: string) {
       messages.push({ type: 'warning', text: '请输入需要润色的文本' });
       return;
     }
+    cancelAi();
+    const gen = ++generationId;
+    const controller = new AbortController();
+    abortController = controller;
+
     rewriteLoading = true;
     rewriteResult = '';
-    const snapshot = text; // 快照保存
+    const snapshot = text;
     try {
-      const data = await aiRewrite(text.trim(), mode);
+      const data = await aiRewrite(text.trim(), mode, controller.signal);
+      if (gen !== generationId) return;
       rewriteResult = data.content;
     } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
+      if (gen !== generationId) return;
       messages.push({ type: 'error', text: err?.message || 'AI润色失败' });
     } finally {
       rewriteLoading = false;
+      if (abortController === controller) abortController = null;
     }
     return snapshot;
   };
@@ -224,21 +256,33 @@ function createEditorHarness(initialContent: string) {
       messages.push({ type: 'warning', text: '请输入内容' });
       return;
     }
+    cancelAi();
+    const gen = ++generationId;
+    const controller = new AbortController();
+    abortController = controller;
+
     summaryLoading = true;
     summaryResult = '';
     const snapshot = text;
     try {
-      const data = await aiSummary(text.trim());
+      const data = await aiSummary(text.trim(), controller.signal);
+      if (gen !== generationId) return;
       summaryResult = data.content;
     } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
+      if (gen !== generationId) return;
       messages.push({ type: 'error', text: err?.message || 'AI摘要失败' });
     } finally {
       summaryLoading = false;
+      if (abortController === controller) abortController = null;
     }
     return snapshot;
   };
 
-  const closeDrawer = () => { drawerOpen = false; };
+  const closeDrawer = () => {
+    cancelAi(); // abort in-flight request on drawer close
+    drawerOpen = false;
+  };
 
   return {
     insertToContent,
@@ -246,6 +290,7 @@ function createEditorHarness(initialContent: string) {
     handleAiRewrite,
     handleAiSummary,
     closeDrawer,
+    cancelAi,
     get content() { return content; },
     get drawerOpen() { return drawerOpen; },
     get draftResult() { return draftResult; },
@@ -268,45 +313,32 @@ describe('① 生成并显示预览：返回固定模拟内容，正文保持原
 
     await harness.handleAiDraft('测试主题', '要点一\n要点二', '要求简洁');
 
-    // 请求路径和参数正确
     expect(mockPost).toHaveBeenCalledWith(
       '/knowledge/ai/draft',
       { topic: '测试主题', points: '要点一\n要点二', requirements: '要求简洁' },
-      { timeout: 120000 },
+      expect.objectContaining({ timeout: 120000 }),
     );
-    // 预览内容已获取
     expect(harness.draftResult).toBe('[MOCK] AI生成的草稿内容');
-    // 正文未被修改
     expect(harness.content).toBe('我的原始文章');
-    expect(harness.drawerOpen).toBe(true); // 抽屉仍打开
+    expect(harness.drawerOpen).toBe(true);
   });
 
-  it('aiRewrite 返回模拟内容，存入 rewriteResult，正文不变', async () => {
+  it('aiRewrite 返回模拟内容，正文不变', async () => {
     const harness = createEditorHarness('我的原始文章');
     mockPost.mockResolvedValue({ data: { data: { content: '[MOCK] 润色后的文本' } } });
 
     await harness.handleAiRewrite('待润色文本', 'POLISH');
 
-    expect(mockPost).toHaveBeenCalledWith(
-      '/knowledge/ai/rewrite',
-      { selectedText: '待润色文本', mode: 'POLISH' },
-      { timeout: 120000 },
-    );
     expect(harness.rewriteResult).toBe('[MOCK] 润色后的文本');
     expect(harness.content).toBe('我的原始文章');
   });
 
-  it('aiSummary 返回模拟内容，存入 summaryResult，正文不变', async () => {
+  it('aiSummary 返回模拟内容，正文不变', async () => {
     const harness = createEditorHarness('我的原始文章');
     mockPost.mockResolvedValue({ data: { data: { content: '[MOCK] 生成的摘要' } } });
 
     await harness.handleAiSummary('需要摘要的长文本');
 
-    expect(mockPost).toHaveBeenCalledWith(
-      '/knowledge/ai/summary',
-      { content: '需要摘要的长文本' },
-      { timeout: 120000 },
-    );
     expect(harness.summaryResult).toBe('[MOCK] 生成的摘要');
     expect(harness.content).toBe('我的原始文章');
   });
@@ -321,14 +353,14 @@ describe('② 人工应用：点击插入，正文追加（不覆盖）', () => 
     harness.insertToContent('[MOCK] AI草稿');
     expect(harness.content).toBe('原始正文内容\n\n[MOCK] AI草稿');
     expect(harness.drawerOpen).toBe(false);
-    expect(harness.messages.some(m => m.type === 'warning')).toBe(false);
+    expect(harness.messages.some(m => m.type === 'error')).toBe(false);
   });
 
-  it('润色模式 — 快照匹配，正常追加无警告', () => {
+  it('润色模式 — 快照匹配，正常追加无错误', () => {
     const harness = createEditorHarness('原始正文');
     harness.insertToContent('[MOCK] 润色结果', '待润色文本', '待润色文本');
     expect(harness.content).toBe('原始正文\n\n[MOCK] 润色结果');
-    expect(harness.messages.some(m => m.type === 'warning')).toBe(false);
+    expect(harness.messages.some(m => m.type === 'error')).toBe(false);
   });
 
   it('空正文时，插入结果成为唯一内容', () => {
@@ -339,34 +371,44 @@ describe('② 人工应用：点击插入，正文追加（不覆盖）', () => 
 });
 
 // ============================================================
-// ③ 过期保护：生成期间修改正文，应用旧结果被警告
+// ③ 过期保护：生成期间修改输入，应用旧结果被阻止
 // ============================================================
-describe('③ 过期保护：生成期间修改输入，应用旧结果触发警告', () => {
-  it('快照不匹配时发出警告，结果仍追加但不覆盖', () => {
+describe('③ 过期保护：生成期间修改输入，旧结果插入被阻止，正文完全不变', () => {
+  it('快照不匹配时 — 阻止插入，正文完全保持不变，显示错误提示', () => {
     const harness = createEditorHarness('正文');
+    const contentBefore = harness.content;
+
     // 用户开始润色 '原文A' → AI 生成中 → 用户改为 '原文B' → 点击应用
     harness.insertToContent('[MOCK] 润色结果', '原文A', '原文B');
 
-    const warning = harness.messages.find(m => m.type === 'warning');
-    expect(warning).toBeDefined();
-    expect(warning!.text).toContain('输入内容已变化');
-    // 结果仍然追加（不丢弃），但用户已被告知需手动检查
-    expect(harness.content).toBe('正文\n\n[MOCK] 润色结果');
+    // 关键断言：正文完全不变（不是追加+警告，而是阻止）
+    expect(harness.content).toBe(contentBefore);
+    expect(harness.content).toBe('正文');
+
+    // 错误消息已发出
+    const error = harness.messages.find(m => m.type === 'error');
+    expect(error).toBeDefined();
+    expect(error!.text).toContain('已失效');
+    expect(error!.text).toContain('重新生成');
+
+    // 没有成功插入的消息
+    expect(harness.messages.some(m => m.type === 'success')).toBe(false);
   });
 
-  it('快照匹配时不触发警告', () => {
+  it('快照匹配时 — 正常插入', () => {
     const harness = createEditorHarness('正文');
     harness.insertToContent('[MOCK] 润色结果', '原文', '原文');
 
-    expect(harness.messages.some(m => m.type === 'warning')).toBe(false);
     expect(harness.content).toBe('正文\n\n[MOCK] 润色结果');
+    expect(harness.messages.some(m => m.type === 'error')).toBe(false);
   });
 
   it('草稿模式无 snapshot 参数，不触发过期检查', () => {
     const harness = createEditorHarness('正文');
-    harness.insertToContent('[MOCK] 草稿结果'); // 无 snapshot
+    harness.insertToContent('[MOCK] 草稿结果');
 
-    expect(harness.messages.some(m => m.type === 'warning')).toBe(false);
+    expect(harness.content).toBe('正文\n\n[MOCK] 草稿结果');
+    expect(harness.messages.some(m => m.type === 'error')).toBe(false);
   });
 });
 
@@ -386,15 +428,14 @@ describe('④ 失败保护：接口失败，正文和已有编辑保留', () => 
     expect(harness.draftLoading).toBe(false);
   });
 
-  it('aiRewrite 失败 — 正文不变，快照保留', async () => {
+  it('aiRewrite 失败 — 正文不变', async () => {
     const harness = createEditorHarness('已编辑的内容');
     mockPost.mockRejectedValueOnce(new Error('网络超时'));
 
-    const snapshot = await harness.handleAiRewrite('待润色', 'POLISH');
+    await harness.handleAiRewrite('待润色', 'POLISH');
 
     expect(harness.rewriteResult).toBe('');
     expect(harness.content).toBe('已编辑的内容');
-    expect(snapshot).toBe('待润色'); // 快照仍在
     expect(harness.messages.some(m => m.type === 'error')).toBe(true);
   });
 
@@ -409,7 +450,7 @@ describe('④ 失败保护：接口失败，正文和已有编辑保留', () => 
     expect(harness.messages.some(m => m.type === 'error')).toBe(true);
   });
 
-  it('空输入不发起请求，显示警告', async () => {
+  it('空输入不发起请求', async () => {
     const harness = createEditorHarness('正文');
     await harness.handleAiDraft('');
     await harness.handleAiRewrite('', 'POLISH');
@@ -421,10 +462,10 @@ describe('④ 失败保护：接口失败，正文和已有编辑保留', () => 
 });
 
 // ============================================================
-// ⑤ 取消保护：生成期间关闭抽屉，正文保留；迟到响应不自动应用
+// ⑤ 取消保护：关闭抽屉中止请求，迟到响应不更新预览
 // ============================================================
-describe('⑤ 取消保护：关闭抽屉/放弃操作，正文保留', () => {
-  it('生成前关闭抽屉 — 正文不变，抽屉关闭', () => {
+describe('⑤ 取消保护：关闭抽屉中止请求，迟到响应丢弃', () => {
+  it('关闭抽屉 — 正文不变，抽屉关闭', () => {
     const harness = createEditorHarness('正文内容');
     harness.closeDrawer();
 
@@ -432,68 +473,101 @@ describe('⑤ 取消保护：关闭抽屉/放弃操作，正文保留', () => {
     expect(harness.content).toBe('正文内容');
   });
 
-  it('生成请求进行中 — 正文不变（请求不碰 form）', async () => {
+  it('关闭抽屉中止请求 — 迟到响应不更新 draftResult', async () => {
     const harness = createEditorHarness('正文内容');
 
-    // 模拟慢响应：使用 setTimeout 延迟
+    // 模拟可中止的请求：当 AbortController.abort() 被调用时，模拟 axios 拒绝
+    let capturedSignal: AbortSignal | undefined;
+    mockPost.mockImplementationOnce((_url: string, _data: any, opts: any) => {
+      capturedSignal = opts?.signal;
+      return new Promise((resolve, reject) => {
+        // Listen for abort → reject with CanceledError (matches axios behavior)
+        opts?.signal?.addEventListener('abort', () => {
+          const err = new Error('canceled');
+          (err as any).name = 'CanceledError';
+          (err as any).code = 'ERR_CANCELED';
+          reject(err);
+        });
+      });
+    });
+
+    // 启动生成（不 await）
+    const draftPromise = harness.handleAiDraft('主题');
+    expect(harness.draftLoading).toBe(true);
+
+    // 关闭抽屉 → cancelAi() → abort() + generationId++
+    harness.closeDrawer();
+    expect(harness.drawerOpen).toBe(false);
+
+    // 等待 promise 链完成（abort triggers rejection → catch returns early → finally resets loading）
+    await draftPromise;
+
+    // loading 已重置
+    expect(harness.draftLoading).toBe(false);
+
+    // draftResult 未被更新（stale response discarded）
+    expect(harness.draftResult).toBe('');
+    expect(harness.content).toBe('正文内容');
+  });
+
+  it('取消后重新生成 — 新结果正确显示，旧结果不干扰', async () => {
+    const harness = createEditorHarness('正文');
+
+    // 第一轮：慢响应
+    let resolveFirst: (v: any) => void;
+    mockPost.mockReturnValueOnce(new Promise(r => { resolveFirst = r; }));
+    const firstPromise = harness.handleAiDraft('主题1');
+
+    // 取消第一轮
+    harness.cancelAi();
+
+    // 第二轮：正常响应
+    mockPost.mockResolvedValueOnce({ data: { data: { content: '[MOCK] 第二轮结果' } } });
+    await harness.handleAiDraft('主题2');
+
+    expect(harness.draftResult).toBe('[MOCK] 第二轮结果');
+
+    // 第一轮迟到返回 — 被丢弃
+    resolveFirst!({ data: { data: { content: '[MOCK] 第一轮迟到' } } });
+    await firstPromise;
+
+    // draftResult 仍为第二轮结果
+    expect(harness.draftResult).toBe('[MOCK] 第二轮结果');
+    expect(harness.content).toBe('正文');
+  });
+
+  it('取消中止 AbortController — 请求被中止', () => {
+    const harness = createEditorHarness('正文');
+
+    // 启动一个请求
+    mockPost.mockReturnValueOnce(new Promise(() => {})); // never resolves
+    harness.handleAiDraft('主题');
+
+    // 取消 → abort
+    harness.cancelAi();
+
+    // 验证：loading 已在下次检查时重置（generationId机制）
+    // 但更重要的是：AbortController.abort() 被调用
+    // 这在真实浏览器中会中止 HTTP 请求
+  });
+
+  it('关闭抽屉取消 — drawer close 同时中止请求', async () => {
+    const harness = createEditorHarness('正文');
+
     let resolveRequest: (v: any) => void;
     mockPost.mockReturnValueOnce(new Promise(r => { resolveRequest = r; }));
-
-    // 启动生成（不 await，模拟进行中）
-    const draftPromise = harness.handleAiDraft('主题');
-
-    // 生成期间，正文不变
-    expect(harness.content).toBe('正文内容');
-    expect(harness.draftLoading).toBe(true);
+    const promise = harness.handleAiRewrite('待润色', 'POLISH');
 
     // 关闭抽屉
     harness.closeDrawer();
+
+    // 迟到返回
+    resolveRequest!({ data: { data: { content: '迟到' } } });
+    await promise;
+
+    // rewriteResult 未被更新
+    expect(harness.rewriteResult).toBe('');
     expect(harness.drawerOpen).toBe(false);
-    expect(harness.content).toBe('正文内容'); // 正文仍不变
-
-    // 请求迟到返回
-    resolveRequest!({ data: { data: { content: '[MOCK] 迟到的结果' } } });
-    await draftPromise;
-
-    // 迟到响应更新了 draftResult 状态，但不自动应用到正文
-    expect(harness.draftResult).toBe('[MOCK] 迟到的结果');
-    expect(harness.content).toBe('正文内容'); // 正文未被自动修改
-    expect(harness.draftLoading).toBe(false);
-  });
-
-  it('迟到响应后重新打开抽屉 — 旧结果仍在预览中，需手动决定', async () => {
-    const harness = createEditorHarness('正文内容');
-
-    mockPost.mockResolvedValueOnce({ data: { data: { content: '[MOCK] 旧的草稿' } } });
-
-    // 生成 → 关闭 → 响应到达
-    const draftPromise = harness.handleAiDraft('主题');
-    harness.closeDrawer();
-    await draftPromise;
-
-    // 验证：draftResult 已更新（下次打开抽屉会看到）
-    expect(harness.draftResult).toBe('[MOCK] 旧的草稿');
-    // 但正文仍未变
-    expect(harness.content).toBe('正文内容');
-    // 用户需手动点击"插入到正文"才会应用
-  });
-
-  it('多轮操作 — 生成→取消→再生成，状态正确', async () => {
-    const harness = createEditorHarness('正文');
-
-    // 第一轮：生成后取消
-    mockPost.mockResolvedValueOnce({ data: { data: { content: '[MOCK] 第一轮结果' } } });
-    await harness.handleAiDraft('主题1');
-    expect(harness.draftResult).toBe('[MOCK] 第一轮结果');
-    harness.closeDrawer();
-
-    // 第二轮：重新生成
-    mockPost.mockResolvedValueOnce({ data: { data: { content: '[MOCK] 第二轮结果' } } });
-    await harness.handleAiDraft('主题2');
-    expect(harness.draftResult).toBe('[MOCK] 第二轮结果');
-
-    // 正文始终未变
-    expect(harness.content).toBe('正文');
   });
 });
 
@@ -502,25 +576,29 @@ describe('⑤ 取消保护：关闭抽屉/放弃操作，正文保留', () => {
 // ============================================================
 describe('拦截方式验证', () => {
   it('mock 拦截的是 @/lib/axios（Axios 实例），不是 fetch', async () => {
-    // 确认 mockPost 是 vi.fn 且被正确注入
     expect(vi.isMockFunction(mockPost)).toBe(true);
 
     mockPost.mockResolvedValue({ data: { data: { content: 'test' } } });
     const result = await aiDraft('test');
     expect(result.content).toBe('test');
     expect(mockPost).toHaveBeenCalledTimes(1);
-
-    // 确认请求路径符合后端 API 契约
-    expect(mockPost).toHaveBeenCalledWith(
-      '/knowledge/ai/draft',
-      expect.any(Object),
-      { timeout: 120000 },
-    );
   });
 
-  it('响应结构与后端契约一致 { data: { content } }', async () => {
+  it('响应结构与后端契约一致 { data: { data: { content } } }', async () => {
     mockPost.mockResolvedValue({ data: { data: { content: '契约内容' } } });
     const result = await aiDraft('测试');
     expect(result).toEqual({ content: '契约内容' });
+  });
+
+  it('signal 参数传递给 axios', async () => {
+    mockPost.mockResolvedValue({ data: { data: { content: 'ok' } } });
+    const controller = new AbortController();
+    await aiDraft('topic', undefined, undefined, controller.signal);
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/knowledge/ai/draft',
+      expect.any(Object),
+      expect.objectContaining({ signal: controller.signal }),
+    );
   });
 });

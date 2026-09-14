@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Typography, Form, Input, Select, Button, Space, Spin, message, Drawer, Tabs,
@@ -59,6 +59,10 @@ export default function KnowledgeEditorPage() {
   const [summarySnapshot, setSummarySnapshot] = useState(''); // snapshot of content when AI started
 
   const isEdit = !!id;
+
+  // AI cancellation: AbortController for in-flight requests, generationId to prevent stale responses
+  const aiAbortRef = useRef<AbortController | null>(null);
+  const aiGenerationRef = useRef(0);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -142,6 +146,13 @@ export default function KnowledgeEditorPage() {
     }
   };
 
+  // ---- AI Cancel ----
+  const cancelAi = useCallback(() => {
+    aiAbortRef.current?.abort();
+    aiAbortRef.current = null;
+    aiGenerationRef.current += 1; // invalidate any in-flight response
+  }, []);
+
   // ---- AI Handlers ----
 
   const handleAiDraft = async () => {
@@ -149,6 +160,11 @@ export default function KnowledgeEditorPage() {
       message.warning('请输入主题');
       return;
     }
+    cancelAi(); // abort previous request if any
+    const gen = ++aiGenerationRef.current;
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+
     setDraftLoading(true);
     setDraftResult('');
     try {
@@ -156,12 +172,17 @@ export default function KnowledgeEditorPage() {
         draftTopic.trim(),
         draftPoints.trim() || undefined,
         draftRequirements.trim() || undefined,
+        controller.signal,
       );
+      if (gen !== aiGenerationRef.current) return; // stale response, discard
       setDraftResult(data.content);
     } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return; // user cancelled
+      if (gen !== aiGenerationRef.current) return;
       message.error(err?.response?.data?.error?.message || 'AI生成失败');
     } finally {
-      setDraftLoading(false);
+      setDraftLoading(false); // always reset loading
+      if (aiAbortRef.current === controller) aiAbortRef.current = null;
     }
   };
 
@@ -170,16 +191,25 @@ export default function KnowledgeEditorPage() {
       message.warning('请输入需要润色的文本');
       return;
     }
+    cancelAi();
+    const gen = ++aiGenerationRef.current;
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+
     setRewriteLoading(true);
     setRewriteResult('');
     setRewriteSnapshot(rewriteText); // save snapshot
     try {
-      const data = await aiRewrite(rewriteText.trim(), rewriteMode);
+      const data = await aiRewrite(rewriteText.trim(), rewriteMode, controller.signal);
+      if (gen !== aiGenerationRef.current) return;
       setRewriteResult(data.content);
     } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
+      if (gen !== aiGenerationRef.current) return;
       message.error(err?.response?.data?.error?.message || 'AI润色失败');
     } finally {
       setRewriteLoading(false);
+      if (aiAbortRef.current === controller) aiAbortRef.current = null;
     }
   };
 
@@ -188,23 +218,33 @@ export default function KnowledgeEditorPage() {
       message.warning('请输入内容');
       return;
     }
+    cancelAi();
+    const gen = ++aiGenerationRef.current;
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+
     setSummaryLoading(true);
     setSummaryResult('');
     setSummarySnapshot(summaryText); // save snapshot
     try {
-      const data = await aiSummary(summaryText.trim());
+      const data = await aiSummary(summaryText.trim(), controller.signal);
+      if (gen !== aiGenerationRef.current) return;
       setSummaryResult(data.content);
     } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
+      if (gen !== aiGenerationRef.current) return;
       message.error(err?.response?.data?.error?.message || 'AI摘要失败');
     } finally {
       setSummaryLoading(false);
+      if (aiAbortRef.current === controller) aiAbortRef.current = null;
     }
   };
 
   const insertToContent = (text: string, snapshot?: string, currentValue?: string) => {
-    // Expired result protection: if snapshot provided and input has changed, warn user
+    // Expired result protection: if snapshot provided and input has changed, BLOCK insertion
     if (snapshot !== undefined && currentValue !== undefined && snapshot !== currentValue) {
-      message.warning('输入内容已变化，AI结果可能不适用。已改为追加到末尾，请手动检查。');
+      message.error('输入内容已变化，AI结果已失效，请重新生成。');
+      return; // do NOT insert
     }
     const currentContent = form.getFieldValue('content') || '';
     form.setFieldsValue({
@@ -324,7 +364,7 @@ export default function KnowledgeEditorPage() {
         placement="right"
         width={480}
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => { cancelAi(); setDrawerOpen(false); }}
       >
         <Tabs
           activeKey={aiTab}

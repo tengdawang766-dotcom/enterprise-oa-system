@@ -159,29 +159,29 @@ export async function submitReview(articleId: number) {
 // AI APIs
 // ========================
 
-export async function aiDraft(topic: string, points?: string, requirements?: string) {
+export async function aiDraft(topic: string, points?: string, requirements?: string, signal?: AbortSignal) {
   const res = await http.post<ApiResponse<AiDraftResponse>>('/knowledge/ai/draft', {
     topic,
     points,
     requirements,
-  }, { timeout: 120000 });
+  }, { timeout: 120000, signal });
   return res.data.data;
 }
 
-export async function aiRewrite(selectedText: string, mode: string) {
+export async function aiRewrite(selectedText: string, mode: string, signal?: AbortSignal) {
   const res = await http.post<ApiResponse<AiRewriteResponse>>('/knowledge/ai/rewrite', {
     selectedText,
     mode,
-  }, { timeout: 120000 });
+  }, { timeout: 120000, signal });
   return res.data.data;
 }
 
-export async function aiSummary(content: string) {
-  const res = await http.post<ApiResponse<AiSummaryResponse>>('/knowledge/ai/summary', { content }, { timeout: 120000 });
+export async function aiSummary(content: string, signal?: AbortSignal) {
+  const res = await http.post<ApiResponse<AiSummaryResponse>>('/knowledge/ai/summary', { content }, { timeout: 120000, signal });
   return res.data.data;
 }
 
-export async function aiQuery(question: string) {
-  const res = await http.post<ApiResponse<AiQueryResponse>>('/knowledge/ai/query', { question }, { timeout: 120000 });
+export async function aiQuery(question: string, signal?: AbortSignal) {
+  const res = await http.post<ApiResponse<AiQueryResponse>>('/knowledge/ai/query', { question }, { timeout: 120000, signal });
   return res.data.data;
 }

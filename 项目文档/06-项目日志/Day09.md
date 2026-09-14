@@ -384,21 +384,31 @@ browser_click 对编辑器页面的"保存修改"按钮未触发请求（无网�
 
 **数据来源：** knowledgeModerationLog 表，查询最近一次 TAKE_DOWN 或 RESTORE_REJECTED 操作的 reason 字段。
 
-### 13.14 AI 页面交互验收（本轮新增）
+### 13.14 AI 页面交互验收（组件行为测试）
 
-验证方式：前端单元测试，mock @/lib/axios（Axios 实例拦截，非 fetch mock）。所有响应为模拟数据，不调用真实 DeepSeek API。
+验证环境：Vitest + jsdom（组件行为测试，非浏览器验收）。拦截方式：vi.mock('@/lib/axios)，直接替换 Axios 实例，非 fetch mock。所有响应为模拟数据，不调用真实 DeepSeek API。
 
-测试文件：frontend/tests/ai-page-verification.test.ts（19 项）
+测试文件：frontend/tests/ai-page-verification.test.ts（21 项）
 
 | # | 场景 | 结果 | 说明 |
 |---|------|------|------|
-| ① | 生成并显示预览 | ✓ 通过 | mock 返回固定内容，draftResult/rewriteResult/summaryResult 正确获取，正文不变 |
-| ② | 人工应用（点击插入） | ✓ 通过 | insertToContent 追加到正文末尾（不覆盖），抽屉关闭 |
-| ③ | 过期保护 | ✓ 通过 | snapshot 不匹配时发出警告，结果仍追加但用户已被告知；匹配时无警告 |
-| ④ | 失败保护 | ✓ 通过 | 接口失败后正文不变，错误被捕获显示，loading 状态正确重置 |
-| ⑤ | 取消保护 | ✓ 通过 | 关闭抽屉正文不变；迟到响应更新 state 但不自动应用到正文；需手动点击插入 |
+| ① | 生成并显示预览 | ✓ 通过 | mock 返回固定内容，正文不变 |
+| ② | 人工应用（点击插入） | ✓ 通过 | insertToContent 追加到正文末尾（不覆盖） |
+| ③ | 过期保护 | ✓ 通过 | snapshot 不匹配时阻止插入（非仅警告），正文完全不变，提示重新生成 |
+| ④ | 失败保护 | ✓ 通过 | 接口失败正文不变，错误捕获，loading 正确重置 |
+| ⑤ | 取消保护 | ✓ 通过 | 关闭抽屉触发 AbortController.abort()，generationId 递增使迟到响应丢弃，正文不变 |
 
-**取消保护补充说明：** 当前实现无显式取消/中止按钮，无 AbortController。关闭抽屉不中断进行中的请求。迟到响应会更新 draftResult/rewriteResult/summaryResult 状态，但不会自动写入表单正文。下次打开抽屉时会看到旧结果，需用户手动决定是否应用。此行为可接受但可优化。
+**过期保护行为变更（本轮修复）：**
+- 旧行为：snapshot 不匹配时警告但继续追加
+- 新行为：snapshot 不匹配时阻止插入，正文完全保持不变，提示"AI结果已失效，请重新生成"
+
+**取消实现：**
+- 客户端：每个 AI 请求创建独立 AbortController，关闭抽屉或发起新请求时调用 abort()。generationId 递增使旧响应失效。
+- signal 传递：通过 axios config.signal 传递给请求，axios 在 abort 时抛出 CanceledError。
+- 服务端：后端 RealAiProvider 使用独立 AbortController 仅用于上游超时。客户端断开不会传播到上游 fetch 调用，上游可能仍产生消耗。此为已知限制。
+- 迟到响应：abort 触发 CanceledError → catch 捕获并 return → 不更新 draftResult/rewriteResult/summaryResult。
+
+**浏览器验收状态：** 组件测试通过，真实浏览器操作待验证。
 
 ### 13.15 工作区状态
 
