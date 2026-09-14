@@ -36,7 +36,7 @@ export const myArticleQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   keyword: z.string().max(100, '搜索关键词最多100个字符').optional(),
   categoryId: z.coerce.number().int().positive().optional(),
-  status: z.enum(['DRAFT', 'PUBLISHED', 'WITHDRAWN']).optional(),
+  status: z.enum(['DRAFT', 'PUBLISHED', 'WITHDRAWN', 'TAKEN_DOWN', 'PENDING_REVIEW']).optional(),
 });
 
 export type MyArticleQuery = z.infer<typeof myArticleQuerySchema>;

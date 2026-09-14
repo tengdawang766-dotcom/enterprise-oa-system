@@ -62,7 +62,7 @@ export class KnowledgeService {
   }
 
   // ========================
-  // Update Article (author only, DRAFT or PUBLISHED)
+  // Update Article (author only, DRAFT or PUBLISHED or TAKEN_DOWN)
   // ========================
   async update(id: number, authorId: number, dto: UpdateArticleRequest) {
     const article = await prisma.knowledgeArticle.findUnique({
@@ -78,10 +78,10 @@ export class KnowledgeService {
       throw BusinessException.forbidden(ErrorCode.KNOWLEDGE_ARTICLE_FORBIDDEN, '只能修改自己的文章');
     }
 
-    if (article.status === 'WITHDRAWN') {
+    if (article.status === 'WITHDRAWN' || article.status === 'PENDING_REVIEW') {
       throw BusinessException.conflict(
         ErrorCode.KNOWLEDGE_ARTICLE_STATE_NOT_ALLOWED,
-        '已撤回的文章不能修改'
+        article.status === 'WITHDRAWN' ? '已撤回的文章不能修改' : '待审核的文章不能修改'
       );
     }
 
@@ -248,7 +248,7 @@ export class KnowledgeService {
   }
 
   // ========================
-  // Article Detail (visible to current user)
+  // Article Detail (visible to current user, with interaction data)
   // ========================
   async findArticleById(id: number, userId: number) {
     const article = await prisma.knowledgeArticle.findUnique({
@@ -278,6 +278,7 @@ export class KnowledgeService {
     // PUBLISHED: all valid employees
     // DRAFT: author only
     // WITHDRAWN: author only
+    // TAKEN_DOWN: author only
     if (article.status === 'DRAFT' && article.authorId !== userId) {
       throw BusinessException.notFound(ErrorCode.KNOWLEDGE_ARTICLE_NOT_FOUND, '文章不存在');
     }
@@ -286,7 +287,25 @@ export class KnowledgeService {
       throw BusinessException.notFound(ErrorCode.KNOWLEDGE_ARTICLE_NOT_FOUND, '文章不存在');
     }
 
-    return this.formatArticleWithRelations(article);
+    if (article.status === 'TAKEN_DOWN' && article.authorId !== userId) {
+      throw BusinessException.notFound(ErrorCode.KNOWLEDGE_ARTICLE_NOT_FOUND, '文章不存在');
+    }
+
+    // Get interaction data
+    const [likeCount, commentCount, likedByMe, favoritedByMe] = await Promise.all([
+      prisma.knowledgeArticleLike.count({ where: { articleId: id } }),
+      prisma.knowledgeComment.count({ where: { articleId: id, deletedAt: null } }),
+      prisma.knowledgeArticleLike.findFirst({ where: { articleId: id, userId }, select: { id: true } }),
+      prisma.knowledgeArticleFavorite.findFirst({ where: { articleId: id, userId }, select: { id: true } }),
+    ]);
+
+    return {
+      ...this.formatArticleWithRelations(article),
+      likeCount,
+      commentCount,
+      likedByMe: !!likedByMe,
+      favoritedByMe: !!favoritedByMe,
+    };
   }
 
   // ========================

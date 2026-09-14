@@ -39,4 +39,8 @@ export class BusinessException extends Error {
   static internal(code: string, message: string) {
     return new BusinessException(500, code, message);
   }
+
+  static serviceUnavailable(code: string, message: string) {
+    return new BusinessException(503, code, message);
+  }
 }

@@ -38,3 +38,7 @@ coverage/
 # === Temp ===
 *.tmp
 *.bak
+
+# Day 9 temp
+.resume-qa/
+output/
