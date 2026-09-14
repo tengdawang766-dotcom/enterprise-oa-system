@@ -1479,4 +1479,171 @@ describe('知识社区模块', () => {
       expect(res.status).toBe(400);
     });
   });
+
+  // ==========================================================
+  // Phase 5: Rate Limiting
+  // ==========================================================
+  describe('AI限流', () => {
+    it('短时间内多次AI请求触发限流 — 400', async () => {
+      // Test rate limiting at the service level using mock provider
+      // to avoid consuming real API calls
+      const { AiService } = await import('../src/modules/knowledge/ai/ai.service');
+      const { createMockProvider } = await import('../src/modules/knowledge/ai/ai-provider');
+      const service = new AiService(createMockProvider());
+
+      // Send 10 requests (should succeed)
+      for (let i = 0; i < 10; i++) {
+        const result = await service.generateDraft(99999, { topic: `test${i}` });
+        expect(result.content).toBeDefined();
+      }
+
+      // 11th request should be rate limited
+      await expect(service.generateDraft(99999, { topic: 'overflow' })).rejects.toThrow('AI请求过于频繁');
+    });
+  });
+
+  // ==========================================================
+  // Phase 6: Article status restrictions for editing
+  // ==========================================================
+  describe('文章状态与编辑限制', () => {
+    it('TAKEN_DOWN 文章：作者可以编辑', async () => {
+      // takenDownArticleId was taken down, author can still edit
+      const res = await request(app)
+        .patch(`/api/v1/knowledge/articles/${takenDownArticleId}`)
+        .set('Cookie', empACookies.join('; '))
+        .send({ title: `${PREFIX}已下架后编辑` });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('PUBLISHED 文章：作者可以编辑', async () => {
+      const res = await request(app)
+        .patch(`/api/v1/knowledge/articles/${publishedArticleId}`)
+        .set('Cookie', empACookies.join('; '))
+        .send({ title: `${PREFIX}已发布后编辑` });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('DRAFT 文章：作者可以编辑', async () => {
+      const res = await request(app)
+        .patch(`/api/v1/knowledge/articles/${draftArticleId}`)
+        .set('Cookie', empACookies.join('; '))
+        .send({ title: `${PREFIX}草稿编辑` });
+
+      expect(res.status).toBe(200);
+    });
+  });
+
+  // ==========================================================
+  // Phase 7: True Concurrent Tests (Promise.all)
+  // ==========================================================
+  describe('并发操作（Promise.all）', () => {
+    it('并发点赞同一文章 — 不产生重复记录', async () => {
+      // Create a fresh article for concurrent testing
+      const artRes = await request(app)
+        .post('/api/v1/knowledge/articles')
+        .set('Cookie', empACookies.join('; '))
+        .send({ title: `${PREFIX}并发点赞测试`, content: '并发测试', categoryId: testCategoryId });
+      const artId = artRes.body.data.id;
+      createdArticleIds.push(artId);
+
+      await request(app)
+        .post(`/api/v1/knowledge/articles/${artId}/publish`)
+        .set('Cookie', empACookies.join('; '));
+
+      // Concurrent likes from empA and empB
+      const [resA, resB] = await Promise.all([
+        request(app).put(`/api/v1/knowledge/articles/${artId}/like`).set('Cookie', empACookies.join('; ')),
+        request(app).put(`/api/v1/knowledge/articles/${artId}/like`).set('Cookie', empBCookies.join('; ')),
+      ]);
+
+      expect(resA.status).toBe(200);
+      expect(resB.status).toBe(200);
+
+      // Verify exactly 2 likes in DB
+      const likeCount = await prisma.knowledgeArticleLike.count({ where: { articleId: artId } });
+      expect(likeCount).toBe(2);
+    });
+
+    it('同一用户并发点赞同一文章 — 幂等不重复', async () => {
+      const artRes = await request(app)
+        .post('/api/v1/knowledge/articles')
+        .set('Cookie', empACookies.join('; '))
+        .send({ title: `${PREFIX}并发幂等点赞`, content: '并发测试', categoryId: testCategoryId });
+      const artId = artRes.body.data.id;
+      createdArticleIds.push(artId);
+
+      await request(app)
+        .post(`/api/v1/knowledge/articles/${artId}/publish`)
+        .set('Cookie', empACookies.join('; '));
+
+      // Same user sends 5 concurrent likes
+      const results = await Promise.all(
+        Array.from({ length: 5 }, () =>
+          request(app).put(`/api/v1/knowledge/articles/${artId}/like`).set('Cookie', empACookies.join('; '))
+        )
+      );
+
+      // All should succeed (idempotent)
+      results.forEach((r) => expect(r.status).toBe(200));
+
+      // But only 1 record in DB (unique constraint)
+      const likeCount = await prisma.knowledgeArticleLike.count({ where: { articleId: artId, userId: empAId } });
+      expect(likeCount).toBe(1);
+    });
+
+    it('并发收藏同一文章 — 不产生重复记录', async () => {
+      const artRes = await request(app)
+        .post('/api/v1/knowledge/articles')
+        .set('Cookie', empACookies.join('; '))
+        .send({ title: `${PREFIX}并发收藏测试`, content: '并发测试', categoryId: testCategoryId });
+      const artId = artRes.body.data.id;
+      createdArticleIds.push(artId);
+
+      await request(app)
+        .post(`/api/v1/knowledge/articles/${artId}/publish`)
+        .set('Cookie', empACookies.join('; '));
+
+      // Same user sends 5 concurrent favorites
+      const results = await Promise.all(
+        Array.from({ length: 5 }, () =>
+          request(app).put(`/api/v1/knowledge/articles/${artId}/favorite`).set('Cookie', empACookies.join('; '))
+        )
+      );
+
+      results.forEach((r) => expect(r.status).toBe(200));
+
+      const favCount = await prisma.knowledgeArticleFavorite.count({ where: { articleId: artId, userId: empAId } });
+      expect(favCount).toBe(1);
+    });
+
+    it('并发取消点赞 — 不报错', async () => {
+      const artRes = await request(app)
+        .post('/api/v1/knowledge/articles')
+        .set('Cookie', empACookies.join('; '))
+        .send({ title: `${PREFIX}并发取消点赞`, content: '并发测试', categoryId: testCategoryId });
+      const artId = artRes.body.data.id;
+      createdArticleIds.push(artId);
+
+      await request(app)
+        .post(`/api/v1/knowledge/articles/${artId}/publish`)
+        .set('Cookie', empACookies.join('; '));
+
+      // Like first
+      await request(app).put(`/api/v1/knowledge/articles/${artId}/like`).set('Cookie', empACookies.join('; '));
+
+      // Concurrent unlike
+      const results = await Promise.all(
+        Array.from({ length: 3 }, () =>
+          request(app).delete(`/api/v1/knowledge/articles/${artId}/like`).set('Cookie', empACookies.join('; '))
+        )
+      );
+
+      results.forEach((r) => expect(r.status).toBe(200));
+
+      const likeCount = await prisma.knowledgeArticleLike.count({ where: { articleId: artId, userId: empAId } });
+      expect(likeCount).toBe(0);
+    });
+  });
 });

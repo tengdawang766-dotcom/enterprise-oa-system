@@ -38,10 +38,10 @@
 | `day4-leave.test.ts` | 请假与审批流程 | 约 42 项 | ✅ 全部通过 |
 | `day5.test.ts` | 个人资料与工作台 | 约 33 项 | ✅ 全部通过 |
 | `knowledge.test.ts` | 知识分享基础 | 约 50 项 | ✅ 全部通过 |
-| `knowledge-community.test.ts` | 知识社区（评论/点赞/收藏/审核） | 约 98 项 | ✅ 全部通过 |
-| `ai-provider.test.ts` | AI Provider 模拟HTTP | 31 项 | ✅ 全部通过 |
+| `knowledge-community.test.ts` | 知识社区（评论/点赞/收藏/审核/并发） | 106 项 | ✅ 全部通过 |
+| `ai-provider.test.ts` | AI Provider 模拟HTTP + 并发/额度/复核 | 39 项 | ✅ 全部通过 |
 | `ai-query.test.ts` | AI 知识问答 | 6 项 | ✅ 全部通过 |
-| **合计** | | **354 项** | **✅ 全部通过** |
+| **合计** | | **370 项** | **✅ 全部通过** |
 
 ### 2.2 前端测试
 

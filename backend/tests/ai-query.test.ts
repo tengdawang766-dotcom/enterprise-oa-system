@@ -133,7 +133,7 @@ describe('AI知识问答', () => {
     expect(res.status).toBe(400);
   });
 
-  it('查询有匹配文章的问题 — 成功或503', async () => {
+  it('查询有匹配文章的问题 — 成功或503', { timeout: 60000 }, async () => {
     const res = await request(app)
       .post('/api/v1/knowledge/ai/query')
       .set('Cookie', empCookies.join('; '))
@@ -184,7 +184,7 @@ describe('AI知识问答', () => {
     expect(res.body.error.code).toBe('AI_QUERY_NO_RESULTS');
   });
 
-  it('AI其他接口也需要验证 — draft/rewrite/summary', async () => {
+  it('AI其他接口也需要验证 — draft/rewrite/summary', { timeout: 120000 }, async () => {
     // These should return 200 (API works), 500 (API fails), or 503 (no key)
     const draftRes = await request(app)
       .post('/api/v1/knowledge/ai/draft')

@@ -1,13 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Form, Input, Select, Button, Space, Spin, message } from 'antd';
-import { SaveOutlined, SendOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import {
+  Typography, Form, Input, Select, Button, Space, Spin, message, Drawer, Tabs,
+} from 'antd';
+import { SaveOutlined, SendOutlined, ArrowLeftOutlined, RobotOutlined } from '@ant-design/icons';
 import {
   getKnowledgeArticle,
   getKnowledgeCategories,
   createKnowledgeArticle,
   updateKnowledgeArticle,
   publishKnowledgeArticle,
+  aiDraft,
+  aiRewrite,
+  aiSummary,
 } from '@/api/knowledge';
 import type { KnowledgeCategory } from '@/types';
 
@@ -28,6 +33,30 @@ export default function KnowledgeEditorPage() {
   const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
   const [saving, setSaving] = useState(false);
   const [initialLoading, setInitialLoading] = useState(!!id);
+
+  // AI drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [aiTab, setAiTab] = useState('draft');
+
+  // Draft tab
+  const [draftTopic, setDraftTopic] = useState('');
+  const [draftPoints, setDraftPoints] = useState('');
+  const [draftRequirements, setDraftRequirements] = useState('');
+  const [draftResult, setDraftResult] = useState('');
+  const [draftLoading, setDraftLoading] = useState(false);
+
+  // Rewrite tab
+  const [rewriteText, setRewriteText] = useState('');
+  const [rewriteMode, setRewriteMode] = useState('polish');
+  const [rewriteResult, setRewriteResult] = useState('');
+  const [rewriteLoading, setRewriteLoading] = useState(false);
+  const [rewriteSnapshot, setRewriteSnapshot] = useState(''); // snapshot of input when AI started
+
+  // Summary tab
+  const [summaryText, setSummaryText] = useState('');
+  const [summaryResult, setSummaryResult] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summarySnapshot, setSummarySnapshot] = useState(''); // snapshot of content when AI started
 
   const isEdit = !!id;
 
@@ -113,6 +142,78 @@ export default function KnowledgeEditorPage() {
     }
   };
 
+  // ---- AI Handlers ----
+
+  const handleAiDraft = async () => {
+    if (!draftTopic.trim()) {
+      message.warning('请输入主题');
+      return;
+    }
+    setDraftLoading(true);
+    setDraftResult('');
+    try {
+      const data = await aiDraft(
+        draftTopic.trim(),
+        draftPoints.trim() || undefined,
+        draftRequirements.trim() || undefined,
+      );
+      setDraftResult(data.content);
+    } catch (err: any) {
+      message.error(err?.response?.data?.error?.message || 'AI生成失败');
+    } finally {
+      setDraftLoading(false);
+    }
+  };
+
+  const handleAiRewrite = async () => {
+    if (!rewriteText.trim()) {
+      message.warning('请输入需要润色的文本');
+      return;
+    }
+    setRewriteLoading(true);
+    setRewriteResult('');
+    setRewriteSnapshot(rewriteText); // save snapshot
+    try {
+      const data = await aiRewrite(rewriteText.trim(), rewriteMode);
+      setRewriteResult(data.content);
+    } catch (err: any) {
+      message.error(err?.response?.data?.error?.message || 'AI润色失败');
+    } finally {
+      setRewriteLoading(false);
+    }
+  };
+
+  const handleAiSummary = async () => {
+    if (!summaryText.trim()) {
+      message.warning('请输入内容');
+      return;
+    }
+    setSummaryLoading(true);
+    setSummaryResult('');
+    setSummarySnapshot(summaryText); // save snapshot
+    try {
+      const data = await aiSummary(summaryText.trim());
+      setSummaryResult(data.content);
+    } catch (err: any) {
+      message.error(err?.response?.data?.error?.message || 'AI摘要失败');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const insertToContent = (text: string, snapshot?: string, currentValue?: string) => {
+    // Expired result protection: if snapshot provided and input has changed, warn user
+    if (snapshot !== undefined && currentValue !== undefined && snapshot !== currentValue) {
+      message.warning('输入内容已变化，AI结果可能不适用。已改为追加到末尾，请手动检查。');
+    }
+    const currentContent = form.getFieldValue('content') || '';
+    form.setFieldsValue({
+      content: currentContent ? currentContent + '\n\n' + text : text,
+    });
+    message.success('已插入到正文');
+    setDrawerOpen(false);
+  };
+
   if (initialLoading) {
     return (
       <div style={{ textAlign: 'center', padding: 100 }}>
@@ -132,7 +233,12 @@ export default function KnowledgeEditorPage() {
         返回
       </Button>
 
-      <Title level={4}>{isEdit ? '编辑文章' : '新建文章'}</Title>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Title level={4} style={{ margin: 0 }}>{isEdit ? '编辑文章' : '新建文章'}</Title>
+        <Button icon={<RobotOutlined />} onClick={() => setDrawerOpen(true)}>
+          AI辅助
+        </Button>
+      </div>
 
       <Form
         form={form}
@@ -211,6 +317,203 @@ export default function KnowledgeEditorPage() {
           </Space>
         </Form.Item>
       </Form>
+
+      {/* AI Drawer */}
+      <Drawer
+        title="AI辅助写作"
+        placement="right"
+        width={480}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        <Tabs
+          activeKey={aiTab}
+          onChange={setAiTab}
+          items={[
+            {
+              key: 'draft',
+              label: '生成草稿',
+              children: (
+                <div>
+                  <div style={{ marginBottom: 12 }}>
+                    <Input
+                      placeholder="请输入文章主题"
+                      value={draftTopic}
+                      onChange={(e) => setDraftTopic(e.target.value)}
+                      maxLength={200}
+                    />
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <TextArea
+                      placeholder="要点（可选，每行一个）"
+                      value={draftPoints}
+                      onChange={(e) => setDraftPoints(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <TextArea
+                      placeholder="其他要求（可选）"
+                      value={draftRequirements}
+                      onChange={(e) => setDraftRequirements(e.target.value)}
+                      rows={2}
+                    />
+                  </div>
+                  <Button
+                    type="primary"
+                    loading={draftLoading}
+                    onClick={handleAiDraft}
+                    style={{ marginBottom: 16 }}
+                  >
+                    生成草稿
+                  </Button>
+                  {draftResult && (
+                    <div>
+                      <div style={{ marginBottom: 8, fontWeight: 500 }}>生成结果：</div>
+                      <div style={{
+                        background: '#f5f5f5',
+                        padding: 12,
+                        borderRadius: 8,
+                        whiteSpace: 'pre-wrap',
+                        maxHeight: 400,
+                        overflow: 'auto',
+                        marginBottom: 12,
+                      }}>
+                        {draftResult}
+                      </div>
+                      <Button size="small" type="primary" onClick={() => insertToContent(draftResult)}>
+                        插入到正文
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: 'polish',
+              label: '润色',
+              children: (
+                <div>
+                  <div style={{ marginBottom: 12 }}>
+                    <TextArea
+                      placeholder="请输入需要润色的文本"
+                      value={rewriteText}
+                      onChange={(e) => setRewriteText(e.target.value)}
+                      rows={5}
+                    />
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <Select
+                      value={rewriteMode}
+                      onChange={setRewriteMode}
+                      style={{ width: '100%' }}
+                      options={[
+                        { label: '润色优化', value: 'polish' },
+                        { label: '整理结构', value: 'structure' },
+                        { label: '精简缩减', value: 'simplify' },
+                        { label: '扩展丰富', value: 'expand' },
+                      ]}
+                    />
+                  </div>
+                  <Button
+                    type="primary"
+                    loading={rewriteLoading}
+                    onClick={handleAiRewrite}
+                    style={{ marginBottom: 16 }}
+                  >
+                    开始润色
+                  </Button>
+                  {rewriteResult && (
+                    <div>
+                      <div style={{ marginBottom: 8, fontWeight: 500 }}>润色结果：</div>
+                      <div style={{
+                        background: '#f5f5f5',
+                        padding: 12,
+                        borderRadius: 8,
+                        whiteSpace: 'pre-wrap',
+                        maxHeight: 400,
+                        overflow: 'auto',
+                        marginBottom: 12,
+                      }}>
+                        {rewriteResult}
+                      </div>
+                      <Button size="small" type="primary" onClick={() => insertToContent(rewriteResult, rewriteSnapshot, rewriteText)}>
+                        插入到正文
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: 'summary',
+              label: '生成摘要',
+              children: (
+                <div>
+                  <div style={{ marginBottom: 12 }}>
+                    <TextArea
+                      placeholder="请输入正文内容以生成摘要"
+                      value={summaryText}
+                      onChange={(e) => setSummaryText(e.target.value)}
+                      rows={6}
+                    />
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        const content = form.getFieldValue('content');
+                        if (content) setSummaryText(content);
+                        else message.warning('正文为空');
+                      }}
+                    >
+                      使用当前正文
+                    </Button>
+                  </div>
+                  <Button
+                    type="primary"
+                    loading={summaryLoading}
+                    onClick={handleAiSummary}
+                    style={{ marginBottom: 16 }}
+                  >
+                    生成摘要
+                  </Button>
+                  {summaryResult && (
+                    <div>
+                      <div style={{ marginBottom: 8, fontWeight: 500 }}>生成的摘要：</div>
+                      <div style={{
+                        background: '#f5f5f5',
+                        padding: 12,
+                        borderRadius: 8,
+                        whiteSpace: 'pre-wrap',
+                        maxHeight: 300,
+                        overflow: 'auto',
+                        marginBottom: 12,
+                      }}>
+                        {summaryResult}
+                      </div>
+                      <Button
+                        size="small"
+                        type="primary"
+                        onClick={() => {
+                          if (summarySnapshot !== summaryText) {
+                            message.warning('输入内容已变化，AI摘要可能不适用。已填入摘要字段，请手动检查。');
+                          }
+                          form.setFieldsValue({ summary: summaryResult });
+                          message.success('已填入摘要字段');
+                          setDrawerOpen(false);
+                        }}
+                      >
+                        填入摘要字段
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ),
+            },
+          ]}
+        />
+      </Drawer>
     </div>
   );
 }

@@ -82,10 +82,12 @@ export class RealAiProvider implements AiProvider {
       });
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
+        // Log upstream status for debugging but don't expose raw error to client
+        const upstreamStatus = response.status;
+        await response.text().catch(() => ''); // drain body
         throw BusinessException.internal(
           ErrorCode.AI_GENERATION_FAILED,
-          `AI服务请求失败 (${response.status}): ${errorText.slice(0, 200)}`
+          `AI服务请求失败 (${upstreamStatus})`
         );
       }
 

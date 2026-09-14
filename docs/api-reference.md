@@ -153,3 +153,31 @@ Status: completed (Day 8). Migration: `20260913072642_add_knowledge_sharing`. 8 
 | POST | `/knowledge/articles/:id/publish` | Publish own draft |
 | POST | `/knowledge/articles/:id/withdraw` | Withdraw own published article |
 | GET | `/knowledge/me/articles` | Current employee's articles |
+
+## 知识社区增强 API（Day 9 已实现）
+
+### 评论
+- POST /knowledge/articles/:id/comments — 发表评论（1-1000字）
+- DELETE /knowledge/comments/:id — 删除自己的评论（软删除）
+- GET /knowledge/articles/:id/comments — 评论列表（分页）
+
+### 点赞收藏
+- PUT/DELETE /knowledge/articles/:id/like — 点赞/取消点赞（幂等）
+- PUT/DELETE /knowledge/articles/:id/favorite — 收藏/取消收藏（幂等）
+- GET /knowledge/me/favorites — 我的收藏（失效占位）
+
+### 管理员
+- GET /admin/knowledge/articles — 管理文章列表
+- POST /admin/knowledge/articles/:id/take-down — 下架（附原因）
+- POST /admin/knowledge/articles/:id/review/approve — 审核通过
+- POST /admin/knowledge/articles/:id/review/reject — 审核驳回
+- GET/POST/PUT /admin/knowledge/categories — 分类CRUD
+- DELETE /admin/knowledge/comments/:id — 管理员删除评论
+
+### AI
+- POST /knowledge/ai/draft — AI生成草稿
+- POST /knowledge/ai/rewrite — AI润色/结构整理
+- POST /knowledge/ai/summary — AI生成摘要
+- POST /knowledge/ai/query — AI知识问答（返回answer+sources）
+
+AI限制：每分钟10次/用户，每日50次/用户，并发3个/用户。缺密钥返回503。
