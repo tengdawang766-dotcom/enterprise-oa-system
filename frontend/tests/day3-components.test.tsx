@@ -32,6 +32,7 @@ vi.mock('@/lib/axios', () => ({
     get: mockAxiosGet,
     post: vi.fn().mockResolvedValue({ data: { success: true, data: {} } }),
     patch: vi.fn().mockResolvedValue({ data: { success: true, data: {} } }),
+    put: vi.fn().mockResolvedValue({ data: { success: true, data: {} } }),
     delete: vi.fn().mockResolvedValue({ data: { success: true } }),
   },
 }));
@@ -59,7 +60,7 @@ beforeEach(() => {
 // ============================================================
 
 describe('AdminLayout 真实组件', () => {
-  it('管理员布局实际显示4个菜单项（含通讯录）', async () => {
+  it('管理员布局实际显示5个菜单项（含通讯录和知识管理）', async () => {
     const { render } = await import('@testing-library/react');
     const { MemoryRouter } = await import('react-router-dom');
     const AdminLayout = (await import('@/layouts/AdminLayout')).default;
@@ -71,13 +72,14 @@ describe('AdminLayout 真实组件', () => {
     );
 
     const menuItems = container.querySelectorAll('[role="menuitem"]');
-    expect(menuItems.length).toBe(4);
+    expect(menuItems.length).toBe(5);
 
     const menuTexts = Array.from(menuItems).map(el => el.textContent);
     expect(menuTexts.some(t => t?.includes('部门管理'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('员工管理'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('公告管理'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('通讯录'))).toBe(true);
+    expect(menuTexts.some(t => t?.includes('知识管理'))).toBe(true);
   }, 10000);
 });
 
@@ -86,7 +88,7 @@ describe('AdminLayout 真实组件', () => {
 // ============================================================
 
 describe('EmployeeLayout 真实组件', () => {
-  it('员工布局实际显示5个菜单项（含公告、请假、通讯录和知识分享）', async () => {
+  it('员工布局实际显示7个菜单项（含公告、请假、通讯录、知识分享、我的收藏和知识查询）', async () => {
     const { render } = await import('@testing-library/react');
     const { MemoryRouter } = await import('react-router-dom');
     const EmployeeLayout = (await import('@/layouts/EmployeeLayout')).default;
@@ -98,7 +100,7 @@ describe('EmployeeLayout 真实组件', () => {
     );
 
     const menuItems = container.querySelectorAll('[role="menuitem"]');
-    expect(menuItems.length).toBe(5);
+    expect(menuItems.length).toBe(7);
 
     const menuTexts = Array.from(menuItems).map(el => el.textContent);
     expect(menuTexts.some(t => t?.includes('工作台'))).toBe(true);
@@ -106,6 +108,8 @@ describe('EmployeeLayout 真实组件', () => {
     expect(menuTexts.some(t => t?.includes('我的请假'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('通讯录'))).toBe(true);
     expect(menuTexts.some(t => t?.includes('知识分享'))).toBe(true);
+    expect(menuTexts.some(t => t?.includes('我的收藏'))).toBe(true);
+    expect(menuTexts.some(t => t?.includes('知识查询'))).toBe(true);
   }, 10000);
 });
 

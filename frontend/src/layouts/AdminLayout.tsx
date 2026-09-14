@@ -10,6 +10,7 @@ import {
   MenuUnfoldOutlined,
   MailOutlined,
   PhoneOutlined,
+  BookOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '@/stores/auth';
 import type { MenuProps } from 'antd';
@@ -32,6 +33,11 @@ const adminMenuItems: MenuProps['items'] = [
     key: '/app/admin/announcements',
     icon: <MailOutlined />,
     label: '公告管理',
+  },
+  {
+    key: '/app/admin/knowledge',
+    icon: <BookOutlined />,
+    label: '知识管理',
   },
   {
     key: '/app/admin/directory',

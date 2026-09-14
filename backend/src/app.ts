@@ -16,6 +16,7 @@ import { leaveRouter } from './modules/leave/leave.controller';
 import { meLeaveRouter } from './modules/me/me-leave.controller';
 import { meApprovalRouter } from './modules/me/me-approval.controller';
 import { knowledgeRouter } from './modules/knowledge/knowledge.controller';
+import { adminKnowledgeRouter } from './modules/knowledge/admin.controller';
 import { authenticationMiddleware, forcePasswordChangeMiddleware, requireRole } from './common/auth/authentication';
 
 export function createApp() {
@@ -114,6 +115,15 @@ export function createApp() {
     forcePasswordChangeMiddleware,
     requireRole('EMPLOYEE'),
     knowledgeRouter
+  );
+
+  // Admin knowledge management
+  app.use(
+    '/api/v1/admin/knowledge',
+    authenticationMiddleware,
+    forcePasswordChangeMiddleware,
+    requireRole('ADMIN'),
+    adminKnowledgeRouter
   );
 
   // Liveness probe - always returns 200 if the process is running

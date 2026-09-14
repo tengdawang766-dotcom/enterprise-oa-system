@@ -472,3 +472,70 @@ docker-compose down
 - 数据归属：创建、修改、发布和撤回均以后端 `currentUser.userId` 为准。
 - 分类：第一版使用系统预置分类，通过只读分类接口供表单和筛选使用；不提供分类管理页面。
 - 本期边界：不包含评论、点赞、AI 助手和跨系统统一登录。
+
+## 知识社区增强（已完成）
+
+> 状态：已完成（Day 9）。包含评论系统、点赞收藏、管理员内容审核、AI 辅助写作与知识查询五大子系统，后端 370 + 前端 146 = 共 516 项测试全部通过。
+
+### 评论系统
+
+- **数据模型**：`KnowledgeComment` — id, articleId, authorId, content, createdAt, updatedAt, deletedAt, deletedById, deleteType(SELF/ADMIN), deleteReason
+- **索引**：(articleId, createdAt)、(authorId, createdAt)
+- **软删除**：作者删除自己的评论标记为 `SELF`，管理员删除任意评论需填写理由并标记为 `ADMIN`，同时写入 `COMMENT_REMOVED` 审计日志
+- **已删除评论**：显示占位文字「该评论已删除」，content 返回 null，评论计数排除已删除
+- **接口**：
+  - `GET /articles/:id/comments?page&pageSize` — 分页获取评论
+  - `POST /articles/:id/comments` — 发表评论
+  - `DELETE /comments/:id` — 删除自己的评论
+  - `DELETE /admin/comments/:id` — 管理员删除评论
+- **校验**：评论内容 1–1000 字符，管理员删除理由 2–500 字符
+
+### 点赞与收藏
+
+- **数据模型**：`KnowledgeArticleLike`（id, articleId, userId, createdAt，UNIQUE 约束）；`KnowledgeArticleFavorite`（id, articleId, userId, createdAt，UNIQUE 约束，INDEX(userId, createdAt)）
+- **幂等操作**：PUT 创建 / DELETE 移除，通过 upsert 与唯一约束保证幂等
+- **文章详情扩展**：返回 `likeCount`、`commentCount`、`likedByMe`、`favoritedByMe`
+- **收藏列表**：可用文章返回完整数据；不可用文章返回 articleId + reason
+
+### 管理员内容审核
+
+- **文章状态扩展**：新增 `TAKEN_DOWN`（下架）、`PENDING_REVIEW`（待复审），原状态 `DRAFT`、`PUBLISHED`、`WITHDRAWN` 保持不变
+- **状态流转**：
+  ```
+  PUBLISHED ──管理员下架──→ TAKEN_DOWN
+  TAKEN_DOWN ──作者提交复审──→ PENDING_REVIEW
+  PENDING_REVIEW ──管理员通过──→ PUBLISHED
+  PENDING_REVIEW ──管理员驳回──→ TAKEN_DOWN
+  ```
+- **审核日志**：`KnowledgeModerationLog` — id, articleId, operatorId, action, reason, articleStatusBefore, articleStatusAfter, createdAt
+- **审核动作**：TAKE_DOWN、REVIEW_SUBMITTED、RESTORE_APPROVED、RESTORE_REJECTED、COMMENT_REMOVED
+- **管理端接口**：文章列表/详情、下架、提交复审、批准/驳回复审、评论管理；管理端路由独立挂载并启用 ADMIN 角色守卫
+
+### AI 辅助写作与知识查询
+
+- **Provider 接口**：`AiProvider` — generateDraft、rewriteText、generateSummary、answerQuestion
+- **实现**：`RealAiProvider` 调用 DeepSeek API（OpenAI 兼容格式），使用 AbortController 超时控制；`MockAiProvider` 仅供测试
+- **工厂函数**：配置了 API Key 则创建 RealAiProvider，未配置则抛出 `AiUnavailableError`（无静默降级）；`createMockProvider()` 仅供测试
+- **服务层**：`AiService` 采用惰性单例模式，支持显式注入 Provider 以便测试
+- **限流（内存）**：每用户 10 次/分钟、最大 3 并发、50 次/天
+- **知识查询**：搜索已发布文章（先标题匹配后内容匹配，取 Top 5），调用 AI 生成回答，查询后二次校验用户状态与文章可见性
+- **配置项**：AI_API_KEY、AI_BASE_URL、AI_MODEL、AI_TIMEOUT_MS(30s)、AI_MAX_PER_MINUTE(10)、AI_MAX_CONCURRENT(3)、AI_DAILY_QUOTA(50)
+- **错误码**：AI_SERVICE_UNAVAILABLE(503)、AI_RATE_LIMIT_EXCEEDED(400)、AI_REQUEST_IN_PROGRESS(400)、AI_GENERATION_FAILED(500)、AI_QUERY_NO_RESULTS(400)
+- **接口**：
+  - `POST /ai/draft` — AI 生成草稿
+  - `POST /ai/rewrite` — AI 改写文本
+  - `POST /ai/summary` — AI 生成摘要
+  - `POST /ai/query` — AI 知识问答
+- **安全**：日志仅记录 requestId/userId/operation/duration/status，不记录内容、密钥或输出
+
+### 测试覆盖
+
+| 范围 | 文件数 | 测试数 |
+|------|--------|--------|
+| 后端 | 9 | 370 |
+| 前端 | 8 | 146 |
+| **合计** | **17** | **516** |
+
+### 部署注意
+
+> ⚠️ AI 限流基于进程内存（Map），服务重启后计数归零，多实例部署不共享限流状态。生产环境如需多实例部署，应改用 Redis 等共享存储。

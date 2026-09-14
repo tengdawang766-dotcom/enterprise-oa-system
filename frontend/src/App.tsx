@@ -31,6 +31,9 @@ const KnowledgeListPage = lazy(() => import('@/pages/KnowledgeListPage'));
 const KnowledgeDetailPage = lazy(() => import('@/pages/KnowledgeDetailPage'));
 const KnowledgeEditorPage = lazy(() => import('@/pages/KnowledgeEditorPage'));
 const MyKnowledgePage = lazy(() => import('@/pages/MyKnowledgePage'));
+const MyFavoritesPage = lazy(() => import('@/pages/MyFavoritesPage'));
+const KnowledgeAskPage = lazy(() => import('@/pages/KnowledgeAskPage'));
+const AdminKnowledgePage = lazy(() => import('@/pages/admin/AdminKnowledgePage'));
 
 function PageLoading() {
   return (
@@ -88,6 +91,8 @@ export default function App() {
             <Route path="knowledge/editor" element={<Suspense fallback={<PageLoading />}><KnowledgeEditorPage /></Suspense>} />
             <Route path="knowledge/editor/:id" element={<Suspense fallback={<PageLoading />}><KnowledgeEditorPage /></Suspense>} />
             <Route path="knowledge/mine" element={<Suspense fallback={<PageLoading />}><MyKnowledgePage /></Suspense>} />
+            <Route path="knowledge/favorites" element={<Suspense fallback={<PageLoading />}><MyFavoritesPage /></Suspense>} />
+            <Route path="knowledge/ask" element={<Suspense fallback={<PageLoading />}><KnowledgeAskPage /></Suspense>} />
           </Route>
 
           {/* Admin routes */}
@@ -107,6 +112,7 @@ export default function App() {
             <Route path="departments" element={<Suspense fallback={<PageLoading />}><DepartmentPage /></Suspense>} />
             <Route path="employees" element={<Suspense fallback={<PageLoading />}><EmployeePage /></Suspense>} />
             <Route path="announcements" element={<Suspense fallback={<PageLoading />}><AnnouncementManagementPage /></Suspense>} />
+            <Route path="knowledge" element={<Suspense fallback={<PageLoading />}><AdminKnowledgePage /></Suspense>} />
             <Route path="directory" element={<Suspense fallback={<PageLoading />}><DirectoryPage /></Suspense>} />
             <Route path="profile" element={<Suspense fallback={<PageLoading />}><ProfilePage /></Suspense>} />
           </Route>

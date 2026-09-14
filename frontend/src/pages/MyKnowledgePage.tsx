@@ -8,12 +8,14 @@ import {
   EditOutlined,
   SendOutlined,
   RollbackOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import {
   getMyKnowledgeArticles,
   getKnowledgeCategories,
   publishKnowledgeArticle,
   withdrawKnowledgeArticle,
+  submitReview,
 } from '@/api/knowledge';
 import type { KnowledgeArticle, KnowledgeCategory } from '@/types';
 
@@ -117,9 +119,21 @@ export default function MyKnowledgePage() {
     });
   };
 
+  const handleSubmitReview = async (article: KnowledgeArticle) => {
+    try {
+      await submitReview(article.id);
+      message.success('已提交审核');
+      fetchArticles();
+    } catch (err: any) {
+      message.error(err?.response?.data?.error?.message || '提交审核失败');
+    }
+  };
+
   const statusTag = (s: string) => {
     if (s === 'PUBLISHED') return <Tag color="green">已发布</Tag>;
     if (s === 'DRAFT') return <Tag color="orange">草稿</Tag>;
+    if (s === 'TAKEN_DOWN') return <Tag color="volcano">已下架</Tag>;
+    if (s === 'PENDING_REVIEW') return <Tag color="purple">审核中</Tag>;
     return <Tag color="red">已撤回</Tag>;
   };
 
@@ -161,6 +175,8 @@ export default function MyKnowledgePage() {
             { label: '草稿', value: 'DRAFT' },
             { label: '已发布', value: 'PUBLISHED' },
             { label: '已撤回', value: 'WITHDRAWN' },
+            { label: '待审核', value: 'PENDING_REVIEW' },
+            { label: '已下架', value: 'TAKEN_DOWN' },
           ]}
         />
       </Space>
@@ -192,7 +208,7 @@ export default function MyKnowledgePage() {
                     <Button type="link" onClick={() => navigate(`/app/knowledge/articles/${item.id}`)}>
                       查看
                     </Button>,
-                    (item.status === 'DRAFT' || item.status === 'PUBLISHED') && (
+                    (item.status === 'DRAFT' || item.status === 'PUBLISHED' || item.status === 'TAKEN_DOWN') && (
                       <Button
                         type="link"
                         icon={<EditOutlined />}
@@ -209,6 +225,11 @@ export default function MyKnowledgePage() {
                     item.status === 'PUBLISHED' && (
                       <Button type="link" danger icon={<RollbackOutlined />} onClick={() => handleWithdraw(item)}>
                         撤回
+                      </Button>
+                    ),
+                    item.status === 'TAKEN_DOWN' && (
+                      <Button type="link" icon={<ReloadOutlined />} onClick={() => handleSubmitReview(item)}>
+                        重新提交审核
                       </Button>
                     ),
                   ].filter(Boolean)}

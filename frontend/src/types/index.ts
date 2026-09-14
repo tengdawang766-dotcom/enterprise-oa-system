@@ -178,7 +178,7 @@ export interface KnowledgeArticle {
   title: string;
   summary: string | null;
   content?: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN';
+  status: 'DRAFT' | 'PUBLISHED' | 'WITHDRAWN' | 'TAKEN_DOWN' | 'PENDING_REVIEW';
   categoryId: number;
   authorId: number;
   publishedAt: string | null;
@@ -187,4 +187,52 @@ export interface KnowledgeArticle {
   updatedAt: string;
   category?: { id: number; name: string };
   author?: { id: number; name: string };
+  // Interaction fields (returned by detail endpoint)
+  likeCount?: number;
+  commentCount?: number;
+  likedByMe?: boolean;
+  favoritedByMe?: boolean;
+  // Taken-down info
+  takenDownAt?: string | null;
+  takenDownReason?: string | null;
+}
+
+export interface KnowledgeComment {
+  id: number;
+  content: string | null;
+  author: { id: number; name: string };
+  createdAt: string;
+  deletedAt: string | null;
+  deleteType: 'SELF' | 'ADMIN' | null;
+  isDeleted: boolean;
+}
+
+export interface KnowledgeArticleInteraction {
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+  favoritedByMe: boolean;
+}
+
+export interface KnowledgeFavoriteItem {
+  available: boolean;
+  articleId?: number;
+  favoriteId: number;
+  favoritedAt: string;
+  title?: string;
+  summary?: string;
+  category?: { id: number; name: string };
+  author?: { id: number; name: string };
+  reason?: string;
+}
+
+export interface AiDraftResponse { content: string }
+export interface AiRewriteResponse { content: string }
+export interface AiSummaryResponse { content: string }
+export interface AiQueryResponse { answer: string; sources: Array<{ articleId: number; title: string }> }
+
+export interface AdminKnowledgeCategory extends KnowledgeCategory {
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }

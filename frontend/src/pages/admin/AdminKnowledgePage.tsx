@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Typography, Tabs, Table, Button, Space, Tag, Input, Select, Modal, Form,
-  Switch, message, Spin, Drawer, Empty, Popconfirm,
+  Switch, message, Spin, Drawer, Empty,
 } from 'antd';
 import {
   EyeOutlined, StopOutlined, CheckOutlined, CloseOutlined,

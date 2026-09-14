@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Typography, Input, Button, Space, Spin, Card, Empty } from 'antd';
+import { Typography, Input, Button, Spin, Card, Empty } from 'antd';
 import { SendOutlined, LinkOutlined } from '@ant-design/icons';
 import { aiQuery } from '@/api/knowledge';
 import type { AiQueryResponse } from '@/types';

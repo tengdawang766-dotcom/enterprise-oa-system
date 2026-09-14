@@ -21,4 +21,10 @@ export const config = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
   COOKIE_SECRET: requireSecret('COOKIE_SECRET', 'default-cookie-secret'),
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+
+  // AI configuration
+  AI_API_KEY: process.env.AI_API_KEY || '',
+  AI_BASE_URL: process.env.AI_BASE_URL || '',
+  AI_MODEL: process.env.AI_MODEL || 'deepseek-chat',
+  AI_TIMEOUT_MS: parseInt(process.env.AI_TIMEOUT_MS || '30000', 10),
 };

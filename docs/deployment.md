@@ -561,3 +561,48 @@ grep FRONTEND_URL backend/.env
 ## 9. 内部知识分享部署影响（已完成）
 
 状态：已完成（Day 8）。部署拓扑、端口和环境变量不变；发布新版本前需应用 Migration `20260913072642_add_knowledge_sharing`，并执行 seed 幂等写入预置分类（操作指南、技术经验、工作复盘、其他）。正文按纯文本返回，前端使用 `white-space: pre-wrap` 渲染，未使用 `dangerouslySetInnerHTML`。
+
+## 10. 知识社区增强部署（已完成）
+
+状态：已完成（Day 9）。新增 Migration `20260913111447_add_knowledge_community_enhancement`，部署前需应用。
+
+### 10.1 Migration 说明
+
+新增 4 张表：`knowledge_comments`（评论，含软删除字段 `deleted_at`、`deleted_by_id`、`delete_type`、`delete_reason`）、`knowledge_article_likes`（点赞，`article_id + user_id` 复合唯一约束）、`knowledge_article_favorites`（收藏，同样复合唯一约束）、`knowledge_moderation_logs`（审核日志，记录 `TAKE_DOWN`、`REVIEW_SUBMITTED`、`RESTORE_APPROVED`、`RESTORE_REJECTED`、`COMMENT_REMOVED` 操作）。`knowledge_articles.status` 新增 `TAKEN_DOWN` 和 `PENDING_REVIEW` 枚举值。
+
+### 10.2 AI 环境变量
+
+AI 功能需要在 `.env` 中配置以下变量：
+
+```env
+# ============================================================
+# AI 配置（知识社区 AI 助手）
+# 缺少 AI_API_KEY 时，AI 接口返回 503，普通知识业务不受影响
+# ============================================================
+AI_API_KEY=sk-xxxx          # 必填，AI 服务 API Key
+AI_BASE_URL=https://api.deepseek.com   # 可选，默认空字符串（需配置实际地址）
+AI_MODEL=deepseek-chat       # 可选，默认 deepseek-chat
+AI_TIMEOUT_MS=30000         # 可选，默认 30000ms
+AI_MAX_PER_MINUTE=10        # 可选，每分钟请求限制，默认 10
+AI_MAX_CONCURRENT=3         # 可选，最大并发数，默认 3
+AI_DAILY_QUOTA=50           # 可选，每日配额，默认 50
+```
+
+### 10.3 速率限制说明
+
+AI 速率限制为 **内存实现**，具有以下特征：
+
+- 服务重启后计数器重置
+- 多实例部署时各实例独立计数，不共享
+- 仅适用于单进程部署场景
+- 生产环境如需跨实例共享限制，需替换为 Redis 等外部存储
+
+### 10.4 密钥安全
+
+- `AI_API_KEY` 不得写入 Docker 镜像、Git 仓库或应用日志
+- 缺少 `AI_API_KEY` 时，AI 接口返回 `503 AI_SERVICE_UNAVAILABLE`，普通知识操作（浏览、评论、点赞等）不受影响
+- 真实模型和容器部署验证尚未执行
+
+### 10.5 种子数据
+
+知识分类已在 Day 8 seed 中预置（操作指南、技术经验、工作复盘、其他），本次无新增种子数据。

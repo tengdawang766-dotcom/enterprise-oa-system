@@ -2569,3 +2569,15 @@ PENDING       → REJECTED
 | GET | `/knowledge/me/articles` | 本人文章列表，支持 status/keyword/categoryId/page/pageSize |
 
 服务端从认证上下文取得作者 ID，不接受客户端指定 authorId。所有 ID 必须为正整数；非法输入返回统一校验错误；不存在或无权查看的非公开文章统一返回 404，避免泄露资源存在性。
+
+# 32. 知识社区增强 API 输入（已完成）
+
+评论内容 1-1000；管理员原因 2-500；AI 问题 1-500；AI 文章输入最多12000。员工接口不接受用户 ID，管理接口独立使用 ADMIN 路由。
+
+**已实现输入规则：**
+
+- **评论**：`POST /articles/:id/comments` content 1-1000（trim 后）；`DELETE /admin/comments/:id` reason 2-500。
+- **点赞/收藏**：`PUT/DELETE /articles/:id/like`，`PUT/DELETE /articles/:id/favorite`，无请求体；幂等通过 UNIQUE 约束保证。
+- **管理员审核**：`POST /articles/:id/take-down` reason 必填；`POST /articles/:id/review/approve` 无需 reason；`POST /articles/:id/review/reject` reason 必填。
+- **AI 写作**：draft topic(1-200)/points/requirements；rewrite selectedText/max12000 + mode(POLISH/STRUCTURE)；summary content max12000。
+- **AI 查询**：query question 1-500。

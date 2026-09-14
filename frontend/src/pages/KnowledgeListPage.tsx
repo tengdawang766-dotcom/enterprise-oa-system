@@ -69,6 +69,8 @@ export default function KnowledgeListPage() {
   const statusTag = (status: string) => {
     if (status === 'PUBLISHED') return <Tag color="green">已发布</Tag>;
     if (status === 'DRAFT') return <Tag color="orange">草稿</Tag>;
+    if (status === 'TAKEN_DOWN') return <Tag color="volcano">已下架</Tag>;
+    if (status === 'PENDING_REVIEW') return <Tag color="purple">审核中</Tag>;
     return <Tag color="red">已撤回</Tag>;
   };
 

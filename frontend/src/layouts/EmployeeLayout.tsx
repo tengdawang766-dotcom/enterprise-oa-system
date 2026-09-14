@@ -12,6 +12,8 @@ import {
   FileTextOutlined,
   AuditOutlined,
   ReadOutlined,
+  StarOutlined,
+  QuestionCircleOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '@/stores/auth';
 import type { MenuProps } from 'antd';
@@ -56,6 +58,18 @@ function getEmployeeMenuItems(isManager: boolean): MenuProps['items'] {
     key: '/app/knowledge',
     icon: <ReadOutlined />,
     label: '知识分享',
+  });
+
+  items!.push({
+    key: '/app/knowledge/favorites',
+    icon: <StarOutlined />,
+    label: '我的收藏',
+  });
+
+  items!.push({
+    key: '/app/knowledge/ask',
+    icon: <QuestionCircleOutlined />,
+    label: '知识查询',
   });
 
   return items;

@@ -1646,4 +1646,145 @@ describe('知识社区模块', () => {
       expect(likeCount).toBe(0);
     });
   });
+
+  // ==========================================================
+  // Phase 8: AI Post-Validation Behaviors
+  // Verifies that post-generation checks in queryKnowledge
+  // properly guard against user-disable, session-expiry, and
+  // source-article-withdrawal race conditions.
+  // ==========================================================
+  describe('AI后置验证行为', () => {
+    const AI_POSTVAL_EMP = {
+      username: `kc_ai_pv_${RUN_ID}`,
+      password: 'AiPostVal123',
+      name: `${PREFIX}AI后置验证员工`,
+    };
+
+    let aiPostValId: number;
+    let aiPostValCookies: string[];
+
+    beforeAll(async () => {
+      // Crash-recovery cleanup for prior aborted runs
+      await prisma.user.deleteMany({ where: { username: AI_POSTVAL_EMP.username } });
+
+      const hash = await bcrypt.hash(AI_POSTVAL_EMP.password, 10);
+      const user = await prisma.user.create({
+        data: {
+          username: AI_POSTVAL_EMP.username,
+          passwordHash: hash,
+          name: AI_POSTVAL_EMP.name,
+          role: 'EMPLOYEE',
+          departmentId: testDeptId,
+          mustChangePassword: false,
+        },
+      });
+      aiPostValId = user.id;
+      aiPostValCookies = await loginAs(AI_POSTVAL_EMP.username, AI_POSTVAL_EMP.password);
+    });
+
+    afterAll(async () => {
+      await prisma.user.deleteMany({ where: { username: AI_POSTVAL_EMP.username } });
+    });
+
+    // ---- Test 1: Disabled user cannot access AI endpoint ----
+    it('用户在登录后被停用，访问AI查询接口 — 401 ACCOUNT_DISABLED', async () => {
+      // disabledCookies were captured BEFORE the user was disabled in outer beforeAll.
+      // The auth middleware should reject the request because user.status === 'DISABLED'.
+      const res = await request(app)
+        .post('/api/v1/knowledge/ai/query')
+        .set('Cookie', disabledCookies.join('; '))
+        .send({ question: '测试停用用户查询' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('ACCOUNT_DISABLED');
+    });
+
+    // ---- Test 2: tokenVersion mismatch rejects old session ----
+    it('tokenVersion变更后旧会话访问AI接口 — 401 AUTH_SESSION_EXPIRED', async () => {
+      // aiPostValCookies were captured with the original tokenVersion.
+      // Simulate a password change / admin reset by incrementing tokenVersion in DB.
+      await prisma.user.update({
+        where: { id: aiPostValId },
+        data: { tokenVersion: { increment: 1 } },
+      });
+
+      const res = await request(app)
+        .post('/api/v1/knowledge/ai/query')
+        .set('Cookie', aiPostValCookies.join('; '))
+        .send({ question: '测试tokenVersion变更' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('AUTH_SESSION_EXPIRED');
+
+      // Restore tokenVersion so it doesn't affect potential future use of this user
+      await prisma.user.update({
+        where: { id: aiPostValId },
+        data: { tokenVersion: { decrement: 1 } },
+      });
+    });
+
+    // ---- Test 3: Article withdrawn during AI generation → post-validation rejects result ----
+    it('文章在AI生成过程中被撤回 — 后置验证拒绝返回结果', async () => {
+      // Create a PUBLISHED article with unique searchable content
+      const artRes = await request(app)
+        .post('/api/v1/knowledge/articles')
+        .set('Cookie', empACookies.join('; '))
+        .send({
+          title: `${PREFIX}AI后置验证专用文章`,
+          content: '这是一篇用于验证AI后置状态检查的文章',
+          categoryId: testCategoryId,
+        });
+      expect(artRes.status).toBe(201);
+      const artId = artRes.body.data.id;
+      createdArticleIds.push(artId);
+
+      const pubRes = await request(app)
+        .post(`/api/v1/knowledge/articles/${artId}/publish`)
+        .set('Cookie', empACookies.join('; '));
+      expect(pubRes.status).toBe(200);
+      expect(pubRes.body.data.status).toBe('PUBLISHED');
+
+      // Dynamically import AiService and MockAiProvider (same pattern as existing AI限流 test)
+      const { AiService } = await import('../src/modules/knowledge/ai/ai.service');
+      const { MockAiProvider } = await import('../src/modules/knowledge/ai/ai-provider');
+
+      // Create a custom provider that WITHDRAWS the source article during answerQuestion.
+      // This simulates the race condition: article is PUBLISHED when the search runs,
+      // but gets withdrawn before the post-validation check.
+      class WithdrawOnAnswerProvider extends MockAiProvider {
+        constructor(private targetArticleId: number) {
+          super();
+        }
+
+        async answerQuestion(
+          question: string,
+          refs: Array<{ title: string; content: string }>
+        ): Promise<string> {
+          // Simulate: article gets withdrawn while AI is "generating"
+          await prisma.knowledgeArticle.update({
+            where: { id: this.targetArticleId },
+            data: { status: 'WITHDRAWN' },
+          });
+          return super.answerQuestion(question, refs);
+        }
+      }
+
+      const service = new AiService(new WithdrawOnAnswerProvider(artId));
+
+      // queryKnowledge should:
+      // 1. Find the article (PUBLISHED) in the search step
+      // 2. Call answerQuestion → our custom provider withdraws the article
+      // 3. Post-validation finds no valid sources → throws KNOWLEDGE_ARTICLE_STATE_NOT_ALLOWED
+      await expect(
+        service.queryKnowledge(empAId, 'AI后置验证专用文章')
+      ).rejects.toThrow('参考文章已不可用');
+
+      // Verify the article was indeed withdrawn by our custom provider
+      const dbArticle = await prisma.knowledgeArticle.findUnique({
+        where: { id: artId },
+        select: { status: true },
+      });
+      expect(dbArticle?.status).toBe('WITHDRAWN');
+    });
+  });
 });

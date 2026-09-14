@@ -3830,3 +3830,33 @@ DRAFT 与 PUBLISHED 可由作者修改；WITHDRAWN 为第一版终态。发布�
 ### 错误码
 
 `KNOWLEDGE_ARTICLE_NOT_FOUND`、`KNOWLEDGE_ARTICLE_FORBIDDEN`、`KNOWLEDGE_ARTICLE_STATE_NOT_ALLOWED`、`KNOWLEDGE_CATEGORY_NOT_AVAILABLE`。
+
+## 知识社区增强 API 设计（已完成）
+
+**员工端 API（auth + forcePasswordChange + EMPLOYEE）：**
+
+- `GET /api/v1/knowledge/articles/:id/comments?page&pageSize` — 评论分页，已删除显示占位
+- `POST /api/v1/knowledge/articles/:id/comments` — 创建评论（content 1-1000）
+- `DELETE /api/v1/knowledge/comments/:id` — 删除自己的评论（软删除）
+- `PUT/DELETE /api/v1/knowledge/articles/:id/like` — 点赞/取消（幂等）
+- `PUT/DELETE /api/v1/knowledge/articles/:id/favorite` — 收藏/取消（幂等）
+- `GET /api/v1/knowledge/me/favorites?page&pageSize` — 我的收藏（含失效占位）
+- `POST /api/v1/knowledge/articles/:id/submit-review` — 提交复审
+- `POST /api/v1/knowledge/ai/draft` — AI 生成草稿
+- `POST /api/v1/knowledge/ai/rewrite` — AI 润色/结构化
+- `POST /api/v1/knowledge/ai/summary` — AI 摘要
+- `POST /api/v1/knowledge/ai/query` — AI 知识查询
+
+**管理员端 API（auth + forcePasswordChange + ADMIN）：**
+
+- `GET /api/v1/admin/knowledge/articles` — 文章列表（支持状态/分类/标题筛选）
+- `GET /api/v1/admin/knowledge/articles/:id` — 文章详情
+- `POST /api/v1/admin/knowledge/articles/:id/take-down` — 下架（reason 必填）
+- `POST /api/v1/admin/knowledge/articles/:id/review/approve` — 审核通过
+- `POST /api/v1/admin/knowledge/articles/:id/review/reject` — 审核驳回（reason 必填）
+- `GET /api/v1/admin/knowledge/comments` — 评论列表
+- `DELETE /api/v1/admin/knowledge/comments/:id` — 管理员删除评论（reason 必填）
+
+**错误码**：`AI_UNAVAILABLE`(503)、`AI_RATE_LIMITED`(429)、`KNOWLEDGE_ARTICLE_STATE_NOT_ALLOWED`。
+
+点赞收藏采用 UNIQUE 约束 + upsert/条件 deleteMany 实现 PUT/DELETE 幂等。管理状态使用条件更新与事务，状态变更和日志同一事务。AI 缺密钥返回 503，限流返回 429。

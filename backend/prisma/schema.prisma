@@ -23,14 +23,19 @@ model User {
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
 
-  department        Department?        @relation("UserDepartment", fields: [departmentId], references: [id])
-  managedDepartment Department?        @relation("DepartmentManager")
-  announcements     Announcement[]
-  reads             AnnouncementRead[]
-  leaveRequests     LeaveRequest[]     @relation("Applicant")
-  approvalTasks     LeaveRequest[]     @relation("Approver")
-  actionLogs        LeaveActionLog[]
-  knowledgeArticles KnowledgeArticle[]
+  department               Department?                @relation("UserDepartment", fields: [departmentId], references: [id])
+  managedDepartment        Department?                @relation("DepartmentManager")
+  announcements            Announcement[]
+  reads                    AnnouncementRead[]
+  leaveRequests            LeaveRequest[]             @relation("Applicant")
+  approvalTasks            LeaveRequest[]             @relation("Approver")
+  actionLogs               LeaveActionLog[]
+  knowledgeArticles        KnowledgeArticle[]
+  knowledgeComments        KnowledgeComment[]         @relation("CommentAuthor")
+  knowledgeCommentsDeleted KnowledgeComment[]         @relation("CommentDeletedBy")
+  articleLikes             KnowledgeArticleLike[]     @relation("ArticleLikeUser")
+  articleFavorites         KnowledgeArticleFavorite[] @relation("ArticleFavoriteUser")
+  moderationOperations     KnowledgeModerationLog[]   @relation("ModerationOperator")
 
   @@map("users")
 }
@@ -191,8 +196,12 @@ model KnowledgeArticle {
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
-  category KnowledgeCategory @relation(fields: [categoryId], references: [id])
-  author   User              @relation(fields: [authorId], references: [id])
+  category       KnowledgeCategory          @relation(fields: [categoryId], references: [id])
+  author         User                       @relation(fields: [authorId], references: [id])
+  comments       KnowledgeComment[]
+  likes          KnowledgeArticleLike[]
+  favorites      KnowledgeArticleFavorite[]
+  moderationLogs KnowledgeModerationLog[]
 
   @@index([status, publishedAt])
   @@index([categoryId, status])
@@ -204,4 +213,86 @@ enum ArticleStatus {
   DRAFT
   PUBLISHED
   WITHDRAWN
+  TAKEN_DOWN
+  PENDING_REVIEW
+}
+
+enum DeleteType {
+  SELF
+  ADMIN
+}
+
+enum ModerationAction {
+  TAKE_DOWN
+  REVIEW_SUBMITTED
+  RESTORE_APPROVED
+  RESTORE_REJECTED
+  COMMENT_REMOVED
+}
+
+model KnowledgeComment {
+  id           Int         @id @default(autoincrement())
+  articleId    Int         @map("article_id")
+  authorId     Int         @map("author_id")
+  content      String      @db.Text
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  deletedAt    DateTime?   @map("deleted_at")
+  deletedById  Int?        @map("deleted_by_id")
+  deleteType   DeleteType? @map("delete_type")
+  deleteReason String?     @map("delete_reason") @db.VarChar(500)
+
+  article   KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Restrict)
+  author    User             @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  deletedBy User?            @relation("CommentDeletedBy", fields: [deletedById], references: [id], onDelete: Restrict)
+
+  @@index([articleId, createdAt])
+  @@index([authorId, createdAt])
+  @@map("knowledge_comments")
+}
+
+model KnowledgeArticleLike {
+  id        Int      @id @default(autoincrement())
+  articleId Int      @map("article_id")
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  article KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Restrict)
+  user    User             @relation("ArticleLikeUser", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([articleId, userId])
+  @@index([userId])
+  @@map("knowledge_article_likes")
+}
+
+model KnowledgeArticleFavorite {
+  id        Int      @id @default(autoincrement())
+  articleId Int      @map("article_id")
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  article KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Restrict)
+  user    User             @relation("ArticleFavoriteUser", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([articleId, userId])
+  @@index([userId, createdAt])
+  @@map("knowledge_article_favorites")
+}
+
+model KnowledgeModerationLog {
+  id                  Int              @id @default(autoincrement())
+  articleId           Int              @map("article_id")
+  operatorId          Int              @map("operator_id")
+  action              ModerationAction
+  reason              String?          @db.VarChar(500)
+  articleStatusBefore String           @map("article_status_before") @db.VarChar(30)
+  articleStatusAfter  String           @map("article_status_after") @db.VarChar(30)
+  createdAt           DateTime         @default(now()) @map("created_at")
+
+  article  KnowledgeArticle @relation(fields: [articleId], references: [id], onDelete: Restrict)
+  operator User             @relation("ModerationOperator", fields: [operatorId], references: [id], onDelete: Restrict)
+
+  @@index([articleId, createdAt])
+  @@index([operatorId, createdAt])
+  @@map("knowledge_moderation_logs")
 }

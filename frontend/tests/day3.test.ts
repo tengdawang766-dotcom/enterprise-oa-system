@@ -46,6 +46,15 @@ vi.mock('@ant-design/icons', () => ({
   RollbackOutlined: () => null,
   EyeOutlined: () => null,
   SearchOutlined: () => null,
+  BookOutlined: () => null,
+  StarOutlined: () => null,
+  QuestionCircleOutlined: () => null,
+  DashboardOutlined: () => null,
+  FileTextOutlined: () => null,
+  AuditOutlined: () => null,
+  ReadOutlined: () => null,
+  HeartOutlined: () => null,
+  LikeOutlined: () => null,
 }));
 vi.mock('react-router-dom', () => ({
   Outlet: () => null,
@@ -482,6 +491,7 @@ describe('Admin layout menu config', () => {
       '/app/admin/employees',
       '/app/admin/announcements',
       '/app/admin/directory',
+      '/app/admin/knowledge',
     ];
 
     // Each expected route should be a valid admin path
@@ -492,7 +502,8 @@ describe('Admin layout menu config', () => {
     // Should include directory
     expect(expectedRoutes).toContain('/app/admin/directory');
     expect(expectedRoutes).toContain('/app/admin/announcements');
-    expect(expectedRoutes).toHaveLength(4);
+    expect(expectedRoutes).toContain('/app/admin/knowledge');
+    expect(expectedRoutes).toHaveLength(5);
   });
 });
 
