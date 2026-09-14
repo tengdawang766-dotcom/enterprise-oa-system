@@ -254,21 +254,27 @@ PENDING_REVIEW --管理员驳回(reason)--> TAKEN_DOWN
 
 | 项目 | 测试文件数 | 测试数量 | 结果 |
 |------|-----------|---------|------|
-| 后端 | 9 | 370 | 全部通过 ✓ |
-| 前端 | 8 | 146 | 全部通过 ✓ |
-| **合计** | **17** | **516** | **全部通过 ✓** |
+| 后端 | 9 | 375 | 全部通过 ✓ |
+| 前端 | 8 | 154 | 全部通过 ✓ |
+| **合计** | **17** | **529** | **全部通过 ✓** |
+
+后端 373→375：新增 AI 生成中途用户停用后置验证、AI 生成中途 tokenVersion 变更后置验证。
+前端 154 项无变化（本轮仅修复 key/lint，未新增测试）。
 
 ### 13.4 构建与校验
 
 | 检查项 | 结果 |
 |--------|------|
 | 后端 tsc --noEmit | 通过 ✓ |
-| 前端 vite build | 通过 ✓（18.33s）|
+| 前端 vite build | 通过 ✓（530ms）|
 | prisma validate | 通过 ✓ |
 | prisma migrate status | 4 migrations，全部已应用 ✓ |
 | git diff --check | 仅CRLF警告，无实质问题 ✓ |
 | skip/only 检查 | 无 ✓ |
 | .gitignore | 已添加 .resume-qa/ 和 output/ ✓ |
+| 前端 lint (oxlint) | 0 errors, 36 warnings，退出码 0 ✓ |
+
+lint 36 warnings 全为历史遗留：react(set-state-in-effect) 标准数据获取模式、react-hooks(exhaustive-deps) 依赖缺失、eslint(no-unused-vars) 测试文件未使用变量。本轮修复了 ApprovalPage.tsx 的 3 个 rules-of-hooks error 和 MyKnowledgePage.tsx 的 5 个 jsx-key warning。
 
 ### 13.5 浏览器验收
 
@@ -282,10 +288,9 @@ PENDING_REVIEW --管理员驳回(reason)--> TAKEN_DOWN
 
 ### 13.6 真实模型调用
 
-- 最新一次直连 DeepSeek API 返回200，模型 deepseek-v4-pro 正常工作
-- 此前测试中出现的500根因尚未由现有证据确定（可能是临时网络或上游瞬时限流）
-- 本轮后续测试全部使用模拟HTTP和显式Mock Provider，未继续消耗真实调用
-- 累计真实调用约2次（1次诊断+1次早期测试），已达授权上限
+- 累计真实调用次数无法可靠确认，本轮不再调用
+- 历史 500 根因未确定；最新直连曾返回 200
+- 全部测试使用模拟 HTTP 和显式 Mock Provider，不消耗真实调用
 
 ### 13.7 AI 安全增强（本轮新增）
 
@@ -294,6 +299,7 @@ PENDING_REVIEW --管理员驳回(reason)--> TAKEN_DOWN
 - 失败/取消自动释放并发槽位
 - queryKnowledge 生成后复核用户状态和来源文章可见性
 - 不向上游错误原文泄露到客户端响应
+- revalidateUser 增加 tokenVersion 后置校验：请求开始时快照 tokenVersion，生成完成后比对，不匹配则返回 AUTH_SESSION_EXPIRED
 
 ### 13.8 前端过期结果保护
 
@@ -301,33 +307,57 @@ PENDING_REVIEW --管理员驳回(reason)--> TAKEN_DOWN
 - 草稿生成：追加模式，不覆盖已有内容
 - 摘要填入：快照比较后决定是否警告
 
-### 13.9 浏览器验收补充
+### 13.9 代码修复（本轮新增）
 
-已验证：
-- ✓ 登录→改密→重新登录
-- ✓ 知识分享页面（搜索、分类、新建文章按钮）
-- ✓ 文章详情页：评论提交、点赞（计数1）、收藏（出现在我的收藏）
-- ✓ 完整审核流程：PUBLISHED→TAKEN_DOWN→PENDING_REVIEW→PUBLISHED
-- ✓ 刷新后页面正确渲染
-- ✓ 管理员知识管理页面（文章/评论/分类三标签页）
-- ✓ 控制台无JS错误
+**修复3: ApprovalPage 条件调用 Hook**
+- 将 `useCallback`×2 和 `useEffect`×1 从 `if (!user?.isDepartmentManager)` 之后移到之前
+- useEffect 内部加 `if (!user?.isDepartmentManager) return` 守卫
+- 保留原有 403 页面和权限行为
+- 消除 3 个 react-hooks(rules-of-hooks) error
 
-待验证（页面提交机制）：
-- △ 文章编辑器表单提交（antd Select 组件自动化兼容问题，未确认是工具问题还是组件问题）
-- △ 评论删除（已有API测试覆盖）
-- △ 取消点赞/取消收藏（已有API+并发测试覆盖）
-- △ 失效收藏占位显示（已有后端测试覆盖）
-- △ 审核驳回流程（已有后端测试覆盖）
-- △ AI预览应用及失败保护（已有前端代码+组件导入测试覆盖）
+**修复4: MyKnowledgePage actions 数组缺 key**
+- 5 个 Button 添加 `key="view"/"edit"/"publish"/"withdraw"/"resubmit"`
+- 消除 5 个 react(jsx-key) warning
 
-### 13.10 遗留事项
+**修复5: revalidateUser tokenVersion 后置校验**
+- `revalidateUser(userId, expectedTokenVersion?)` 增加可选参数
+- `queryKnowledge` 入口快照 tokenVersion，生成后传给 revalidateUser 比对
+- 新增 AI 生成中途用户停用后置验证测试（DisableOnAnswerProvider）
+- 新增 AI 生成中途 tokenVersion 变更后置验证测试（TokenVersionBumpProvider）
 
-1. AI API 500根因待确定（最新直连返回200，此前500证据不足）
-2. 文章编辑器表单提交机制待人工验证（antd Select自动化兼容）
-3. 部分文档（14份）仍停留在V1.0阶段，需继续回写知识社区实现
-4. 并发上限/每日额度为内存实现，重启后重置，多实例不共享
+### 13.10 浏览器验收状态
 
-### 13.8 工作区状态
+7 项浏览器验收均待实际页面操作：
+
+1. 文章选择分类并提交
+2. 删除评论
+3. 取消点赞
+4. 取消收藏
+5. 失效收藏占位
+6. 管理员驳回复审
+7. AI 预览应用、过期保护和失败保留原文
+
+### 13.11 浏览器验收测试数据
+
+以下数据通过 API 创建，供下一轮浏览器验收使用，不重复创建：
+
+| 数据 | ID | 当前状态 | 用途 |
+|------|-----|---------|------|
+| 文章：浏览器验收测试文章 | 395 | PUBLISHED | 分类提交、评论、点赞、收藏 |
+| 评论：员工的待删除评论 | 47 | 存在 | 删除评论 |
+| 文章：待审核文章-驳回测试 | 396 | PENDING_REVIEW | 管理员驳回复审 |
+| 文章：失效收藏测试文章 | 398 | TAKEN_DOWN | 失效收藏占位（员工已收藏） |
+
+员工账号 wangwu（ID=662）已对该文章点赞+收藏，评论 ID=47 由 wangwu 创建。
+
+### 13.12 遗留事项
+
+1. 7 项浏览器验收待完成
+2. AI API 500 根因未确定（最新直连曾返回 200）
+3. 并发上限/每日额度为内存实现，重启后重置，多实例不共享
+4. 累计真实模型调用次数无法可靠确认
+
+### 13.13 工作区状态
 
 - 后端服务：已停止
 - 前端服务：已停止

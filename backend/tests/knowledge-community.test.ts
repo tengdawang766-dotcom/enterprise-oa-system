@@ -1786,5 +1786,146 @@ describe('知识社区模块', () => {
       });
       expect(dbArticle?.status).toBe('WITHDRAWN');
     });
+
+    // ---- Test 4: User disabled during AI generation → post-validation rejects result ----
+    it('用户在AI生成过程中被停用 — 后置验证拒绝返回结果', async () => {
+      // Create a PUBLISHED article with searchable content for this test
+      const artRes = await request(app)
+        .post('/api/v1/knowledge/articles')
+        .set('Cookie', empACookies.join('; '))
+        .send({
+          title: `${PREFIX}AI停用后置验证文章`,
+          content: '这是一篇用于验证AI生成过程中用户停用后置检查的文章',
+          categoryId: testCategoryId,
+        });
+      expect(artRes.status).toBe(201);
+      const artId = artRes.body.data.id;
+      createdArticleIds.push(artId);
+
+      const pubRes = await request(app)
+        .post(`/api/v1/knowledge/articles/${artId}/publish`)
+        .set('Cookie', empACookies.join('; '));
+      expect(pubRes.status).toBe(200);
+
+      const { AiService } = await import('../src/modules/knowledge/ai/ai.service');
+      const { MockAiProvider } = await import('../src/modules/knowledge/ai/ai-provider');
+
+      // Create a provider that DISABLES the user during answerQuestion.
+      // This simulates: request starts → admin disables user → AI finishes → post-validation catches it.
+      class DisableOnAnswerProvider extends MockAiProvider {
+        constructor(private targetUserId: number) {
+          super();
+        }
+
+        async answerQuestion(
+          question: string,
+          refs: Array<{ title: string; content: string }>
+        ): Promise<string> {
+          // Simulate: admin disables user while AI is "generating"
+          await prisma.user.update({
+            where: { id: this.targetUserId },
+            data: { status: 'DISABLED' },
+          });
+          return super.answerQuestion(question, refs);
+        }
+      }
+
+      const service = new AiService(new DisableOnAnswerProvider(aiPostValId));
+
+      // queryKnowledge should:
+      // 1. Find the article (PUBLISHED) in the search step
+      // 2. Call answerQuestion → our custom provider disables the user
+      // 3. Post-validation finds user DISABLED → throws ACCOUNT_DISABLED
+      await expect(
+        service.queryKnowledge(aiPostValId, 'AI停用后置验证文章')
+      ).rejects.toThrow('账号已停用');
+
+      // Verify the user was indeed disabled by our custom provider
+      const dbUser = await prisma.user.findUnique({
+        where: { id: aiPostValId },
+        select: { status: true },
+      });
+      expect(dbUser?.status).toBe('DISABLED');
+
+      // Restore user status for cleanup (afterAll deletes this user anyway)
+      await prisma.user.update({
+        where: { id: aiPostValId },
+        data: { status: 'ENABLED' },
+      });
+    });
+
+    // ---- Test 5: tokenVersion incremented during AI generation → post-validation rejects result ----
+    it('tokenVersion在AI生成过程中变更 — 后置验证拒绝返回结果', async () => {
+      // Create a PUBLISHED article with searchable content for this test
+      const artRes = await request(app)
+        .post('/api/v1/knowledge/articles')
+        .set('Cookie', empACookies.join('; '))
+        .send({
+          title: `${PREFIX}AI版本后置验证文章`,
+          content: '这是一篇用于验证AI生成过程中tokenVersion变更后置检查的文章',
+          categoryId: testCategoryId,
+        });
+      expect(artRes.status).toBe(201);
+      const artId = artRes.body.data.id;
+      createdArticleIds.push(artId);
+
+      const pubRes = await request(app)
+        .post(`/api/v1/knowledge/articles/${artId}/publish`)
+        .set('Cookie', empACookies.join('; '));
+      expect(pubRes.status).toBe(200);
+
+      const { AiService } = await import('../src/modules/knowledge/ai/ai.service');
+      const { MockAiProvider } = await import('../src/modules/knowledge/ai/ai-provider');
+
+      // Create a provider that increments tokenVersion during answerQuestion.
+      // This simulates: request starts → password reset → AI finishes → post-validation catches mismatch.
+      class TokenVersionBumpProvider extends MockAiProvider {
+        constructor(private targetUserId: number) {
+          super();
+        }
+
+        async answerQuestion(
+          question: string,
+          refs: Array<{ title: string; content: string }>
+        ): Promise<string> {
+          // Simulate: admin resets password (bumps tokenVersion) while AI is "generating"
+          await prisma.user.update({
+            where: { id: this.targetUserId },
+            data: { tokenVersion: { increment: 1 } },
+          });
+          return super.answerQuestion(question, refs);
+        }
+      }
+
+      // Snapshot current tokenVersion before test
+      const beforeUser = await prisma.user.findUnique({
+        where: { id: aiPostValId },
+        select: { tokenVersion: true },
+      });
+      const versionBefore = beforeUser!.tokenVersion;
+
+      const service = new AiService(new TokenVersionBumpProvider(aiPostValId));
+
+      // queryKnowledge should:
+      // 1. Snapshot tokenVersion at start (= versionBefore)
+      // 2. Call answerQuestion → our custom provider bumps tokenVersion
+      // 3. Post-validation finds mismatch → throws AUTH_SESSION_EXPIRED
+      await expect(
+        service.queryKnowledge(aiPostValId, 'AI版本后置验证文章')
+      ).rejects.toThrow('会话已过期');
+
+      // Verify the tokenVersion was indeed bumped
+      const afterUser = await prisma.user.findUnique({
+        where: { id: aiPostValId },
+        select: { tokenVersion: true },
+      });
+      expect(afterUser!.tokenVersion).toBe(versionBefore + 1);
+
+      // Restore tokenVersion
+      await prisma.user.update({
+        where: { id: aiPostValId },
+        data: { tokenVersion: versionBefore },
+      });
+    });
   });
 });

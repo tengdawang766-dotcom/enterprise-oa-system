@@ -142,7 +142,7 @@ export class AiService {
   // ========================
   // User + article re-validation (for queryKnowledge)
   // ========================
-  private async revalidateUser(userId: number): Promise<void> {
+  private async revalidateUser(userId: number, expectedTokenVersion?: number): Promise<void> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, status: true, tokenVersion: true },
@@ -150,6 +150,10 @@ export class AiService {
 
     if (!user || user.status === 'DISABLED') {
       throw BusinessException.unauthorized(ErrorCode.ACCOUNT_DISABLED, '账号已停用');
+    }
+
+    if (expectedTokenVersion !== undefined && user.tokenVersion !== expectedTokenVersion) {
+      throw BusinessException.unauthorized(ErrorCode.AUTH_SESSION_EXPIRED, '会话已过期，请重新登录');
     }
   }
 
@@ -217,6 +221,16 @@ export class AiService {
   // ========================
   async queryKnowledge(userId: number, question: string) {
     return this.executeWithLimits(userId, async () => {
+      // 0. Snapshot user tokenVersion at request start
+      const userSnapshot = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { status: true, tokenVersion: true },
+      });
+      if (!userSnapshot || userSnapshot.status === 'DISABLED') {
+        throw BusinessException.unauthorized(ErrorCode.ACCOUNT_DISABLED, '账号已停用');
+      }
+      const expectedTokenVersion = userSnapshot.tokenVersion;
+
       // 1. Search PUBLISHED articles only
       let articles = await prisma.knowledgeArticle.findMany({
         where: {
@@ -254,7 +268,7 @@ export class AiService {
       const answer = await this.provider!.answerQuestion(question, references);
 
       // 4. Post-generation re-validation: user still valid?
-      await this.revalidateUser(userId);
+      await this.revalidateUser(userId, expectedTokenVersion);
 
       // 5. Post-generation re-validation: sources still PUBLISHED?
       const validSources = await prisma.knowledgeArticle.findMany({

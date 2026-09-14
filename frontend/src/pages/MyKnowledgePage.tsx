@@ -205,11 +205,12 @@ export default function MyKnowledgePage() {
               renderItem={(item) => (
                 <List.Item
                   actions={[
-                    <Button type="link" onClick={() => navigate(`/app/knowledge/articles/${item.id}`)}>
+                    <Button key="view" type="link" onClick={() => navigate(`/app/knowledge/articles/${item.id}`)}>
                       查看
                     </Button>,
                     (item.status === 'DRAFT' || item.status === 'PUBLISHED' || item.status === 'TAKEN_DOWN') && (
                       <Button
+                        key="edit"
                         type="link"
                         icon={<EditOutlined />}
                         onClick={() => navigate(`/app/knowledge/editor/${item.id}`)}
@@ -218,17 +219,17 @@ export default function MyKnowledgePage() {
                       </Button>
                     ),
                     item.status === 'DRAFT' && (
-                      <Button type="link" icon={<SendOutlined />} onClick={() => handlePublish(item)}>
+                      <Button key="publish" type="link" icon={<SendOutlined />} onClick={() => handlePublish(item)}>
                         发布
                       </Button>
                     ),
                     item.status === 'PUBLISHED' && (
-                      <Button type="link" danger icon={<RollbackOutlined />} onClick={() => handleWithdraw(item)}>
+                      <Button key="withdraw" type="link" danger icon={<RollbackOutlined />} onClick={() => handleWithdraw(item)}>
                         撤回
                       </Button>
                     ),
                     item.status === 'TAKEN_DOWN' && (
-                      <Button type="link" icon={<ReloadOutlined />} onClick={() => handleSubmitReview(item)}>
+                      <Button key="resubmit" type="link" icon={<ReloadOutlined />} onClick={() => handleSubmitReview(item)}>
                         重新提交审核
                       </Button>
                     ),

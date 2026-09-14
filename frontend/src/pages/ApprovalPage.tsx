@@ -36,18 +36,6 @@ export default function ApprovalPage() {
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotal, setHistoryTotal] = useState(0);
 
-  // Guard: non-managers cannot access approval page
-  if (!user?.isDepartmentManager) {
-    return (
-      <Result
-        status="403"
-        title="无权限"
-        subTitle="您不是部门负责人，无法访问审批管理页面"
-        extra={<Button onClick={() => navigate('/app/dashboard')}>返回工作台</Button>}
-      />
-    );
-  }
-
   const fetchPending = useCallback(async (p = 1) => {
     setPendingLoading(true);
     setPendingError(null);
@@ -79,9 +67,22 @@ export default function ApprovalPage() {
   }, []);
 
   useEffect(() => {
+    if (!user?.isDepartmentManager) return;
     fetchPending(1);
     fetchHistory(1);
-  }, [fetchPending, fetchHistory]);
+  }, [fetchPending, fetchHistory, user?.isDepartmentManager]);
+
+  // Guard: non-managers cannot access approval page
+  if (!user?.isDepartmentManager) {
+    return (
+      <Result
+        status="403"
+        title="无权限"
+        subTitle="您不是部门负责人，无法访问审批管理页面"
+        extra={<Button onClick={() => navigate('/app/dashboard')}>返回工作台</Button>}
+      />
+    );
+  }
 
   const handleApprove = (record: LeaveRequest) => {
     let commentValue = '';
