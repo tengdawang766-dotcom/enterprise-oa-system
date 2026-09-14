@@ -194,7 +194,7 @@ export interface KnowledgeArticle {
   favoritedByMe?: boolean;
   // Taken-down info
   takenDownAt?: string | null;
-  takenDownReason?: string | null;
+  moderationReason?: string | null;
 }
 
 export interface KnowledgeComment {

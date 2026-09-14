@@ -311,6 +311,11 @@ function ArticlesTab() {
                 <Text type="secondary">{detailArticle.summary}</Text>
               </div>
             )}
+            {detailArticle.status === 'TAKEN_DOWN' && detailArticle.moderationReason && (
+              <div style={{ background: '#fff2f0', border: '1px solid #ffccc7', padding: 12, borderRadius: 8, marginBottom: 16 }}>
+                <Text type="danger">下架/驳回原因：{detailArticle.moderationReason}</Text>
+              </div>
+            )}
             <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.8, marginBottom: 24 }}>
               {detailArticle.content}
             </div>

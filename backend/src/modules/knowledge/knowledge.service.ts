@@ -299,12 +299,27 @@ export class KnowledgeService {
       prisma.knowledgeArticleFavorite.findFirst({ where: { articleId: id, userId }, select: { id: true } }),
     ]);
 
+    // Get moderation reason for TAKEN_DOWN articles (author only, already verified above)
+    let moderationReason: string | null = null;
+    if (article.status === 'TAKEN_DOWN') {
+      const modLog = await prisma.knowledgeModerationLog.findFirst({
+        where: {
+          articleId: id,
+          action: { in: ['TAKE_DOWN', 'RESTORE_REJECTED'] },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { reason: true },
+      });
+      moderationReason = modLog?.reason ?? null;
+    }
+
     return {
       ...this.formatArticleWithRelations(article),
       likeCount,
       commentCount,
       likedByMe: !!likedByMe,
       favoritedByMe: !!favoritedByMe,
+      moderationReason,
     };
   }
 

@@ -274,7 +274,7 @@ export default function KnowledgeDetailPage() {
       {(article.status === 'TAKEN_DOWN' || article.status === 'PENDING_REVIEW') && (
         <div style={{ background: '#fff2f0', border: '1px solid #ffccc7', padding: 12, borderRadius: 8, marginBottom: 16 }}>
           <Text type="danger">
-            {article.status === 'TAKEN_DOWN' && (article.takenDownReason || '该文章已被管理员下架')}
+            {article.status === 'TAKEN_DOWN' && (article.moderationReason || '该文章已被管理员下架')}
             {article.status === 'PENDING_REVIEW' && '该文章正在审核中，请等待管理员审核'}
           </Text>
         </div>
@@ -402,7 +402,7 @@ export default function KnowledgeDetailPage() {
                 <List.Item.Meta
                   title={
                     <Space>
-                      <Text strong>{item.isDeleted ? '已删除用户' : item.author.name}</Text>
+                      <Text strong>{item.author.name}</Text>
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         {new Date(item.createdAt).toLocaleString('zh-CN')}
                       </Text>

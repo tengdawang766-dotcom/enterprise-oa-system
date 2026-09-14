@@ -1125,6 +1125,36 @@ describe('知识社区模块', () => {
 
         expect(res.status).toBe(409);
       });
+
+      it('管理员文章详情包含审核原因（TAKEN_DOWN）', async () => {
+        const res = await request(app)
+          .get(`/api/v1/admin/knowledge/articles/${rejectTargetId}`)
+          .set('Cookie', adminCookies.join('; '));
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.status).toBe('TAKEN_DOWN');
+        expect(res.body.data.moderationReason).toBe('内容不符合要求');
+      });
+
+      it('作者文章详情包含审核原因（TAKEN_DOWN）', async () => {
+        const res = await request(app)
+          .get(`/api/v1/knowledge/articles/${rejectTargetId}`)
+          .set('Cookie', empACookies.join('; '));
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.status).toBe('TAKEN_DOWN');
+        expect(res.body.data.moderationReason).toBe('内容不符合要求');
+      });
+
+      it('PUBLISHED文章详情不包含审核原因', async () => {
+        const res = await request(app)
+          .get(`/api/v1/knowledge/articles/${publishedArticleId}`)
+          .set('Cookie', empACookies.join('; '));
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.status).toBe('PUBLISHED');
+        expect(res.body.data.moderationReason).toBeNull();
+      });
     });
 
     // ---- PENDING_REVIEW article restrictions ----

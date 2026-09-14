@@ -71,6 +71,22 @@ export class KnowledgeModerationService {
   }
 
   // ========================
+  // Get latest moderation reason for an article
+  // Returns reason from the most recent TAKE_DOWN or RESTORE_REJECTED action
+  // ========================
+  async getLatestModerationReason(articleId: number): Promise<string | null> {
+    const log = await prisma.knowledgeModerationLog.findFirst({
+      where: {
+        articleId,
+        action: { in: ['TAKE_DOWN', 'RESTORE_REJECTED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { reason: true },
+    });
+    return log?.reason ?? null;
+  }
+
+  // ========================
   // Admin: article detail
   // ========================
   async findAdminArticleDetail(id: number) {
@@ -102,6 +118,12 @@ export class KnowledgeModerationService {
       throw BusinessException.notFound(ErrorCode.KNOWLEDGE_ARTICLE_NOT_FOUND, '文章不存在');
     }
 
+    // Get latest moderation reason for TAKEN_DOWN / PENDING_REVIEW articles
+    let moderationReason: string | null = null;
+    if (article.status === 'TAKEN_DOWN' || article.status === 'PENDING_REVIEW') {
+      moderationReason = await this.getLatestModerationReason(id);
+    }
+
     return {
       id: article.id,
       title: article.title,
@@ -116,6 +138,7 @@ export class KnowledgeModerationService {
       updatedAt: formatTimestamp(article.updatedAt),
       category: { id: article.category.id, name: article.category.name },
       author: { id: article.author.id, name: article.author.name },
+      moderationReason,
     };
   }
 
